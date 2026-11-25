@@ -1,0 +1,6 @@
+{
+  "name": "5R PT SPIL",
+  "description": "Aplikasi kirim foto bukti 5R Cabang/Kantor dan penilaian skala 1-5 oleh Tim HSE PT SPIL.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

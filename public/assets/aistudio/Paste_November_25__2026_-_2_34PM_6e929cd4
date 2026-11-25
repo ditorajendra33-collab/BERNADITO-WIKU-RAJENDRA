@@ -1,0 +1,2706 @@
+Berikut adalah kode lengkap `index.html` yang sudah dirombak menjadi **2 Menu Peran Utama** sesuai alur **PT SPIL** (ditambah **Dashboard Rekapitulasi**), tetap mempertahankan tema **Hijau & Putih PT SPIL** serta logo bendera merah **SPIL**:
+
+### Alur Kerja Baru:
+1. **Menu 1 — `Pengirim (Cabang / Kantor)` *(Tanpa Nilai)***:
+   - Pengirim memilih **Cabang / Kantor** *(bisa tambah mandiri)*, **Nama Pengirim** *(bisa tambah mandiri)*, **Divisi** *(bisa tambah mandiri)*, dan **Scan QR / Pilih Area** *(bisa tambah mandiri)*.
+   - Form Pengirim **tidak memiliki skor 1–5**, khusus untuk mengunggah **Foto Bukti tiap aspek 5R (`R1 Ringkas`, `R2 Rapi`, `R3 Resik`, `R4 Rawat`, `R5 Rajin`)** serta catatan kondisi lapangan.
+   - Setelah dikirim, laporan masuk ke antrean **`Menunggu Penilaian HSE`**.
+2. **Menu 2 — `Penilai (Tim HSE)` *(Penilaian Skala 1–5 dari Foto)***:
+   - Menampilkan daftar kiriman foto dari tiap **Cabang / Kantor** lengkap dengan badge jumlah antrean yang belum dinilai, serta filter Cabang dan Status (`Menunggu Penilaian` / `Sudah Dinilai`).
+   - Saat Tim HSE membuka laporan, foto bukti tiap aspek **R1–R5** yang dikirim Cabang/Kantor tampil langsung di atas tombol **Skor Skala 1–5** *(foto juga bisa diklik untuk diperbesar/zoom)*, dilengkapi input **Nama Penilai HSE** *(bisa tambah mandiri)* dan **Catatan Temuan HSE**.
+3. **Menu 3 — `Dashboard`**:
+   - Rekapitulasi skor 5R per Area & Cabang/Kantor (dari hasil penilaian Tim HSE), riwayat lengkap dengan filter Cabang/Status/Skor, serta **Export CSV**.
+
+Simpan kode berikut sebagai `index.html`:
+
+```html
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>5R PT SPIL — Kirim Foto Cabang & Penilaian Tim HSE</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            spilgreen: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              200: '#bbf7d0',
+              300: '#86efac',
+              500: '#16a34a',
+              600: '#007a3d',
+              700: '#006130',
+              800: '#004d26',
+              900: '#02381d',
+            },
+            spilred: {
+              600: '#c91d2b',
+              700: '#a81521',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- HTML5 QRCode & Barcode Scanner -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- QR Code Generator untuk cetak/testing QR Area -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 280px, #f8fafc 100%);
+      min-height: 100vh;
+    }
+
+    #qr-reader video {
+      border-radius: 0.75rem !important;
+      object-fit: cover !important;
+      width: 100% !important;
+    }
+    #qr-reader {
+      border: none !important;
+    }
+
+    .tab-page {
+      animation: fadeSlide 0.2s ease-out;
+    }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media print {
+      body * { visibility: hidden; }
+      #qr-print-area, #qr-print-area * { visibility: visible; }
+      #qr-print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 16px !important;
+        padding: 16px !important;
+      }
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased pb-24 md:pb-10">
+
+  <!-- TOP HEADER (HIJAU SPIL & PUTIH) -->
+  <header class="sticky top-0 z-30 bg-spilgreen-700 text-white shadow-md">
+    <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-2 sm:gap-3">
+      <!-- Brand Logo SPIL di atas Badge Putih -->
+      <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <div class="w-12 h-10 rounded-xl bg-white flex items-center justify-center p-1 shrink-0 shadow-sm">
+          <svg viewBox="0 0 130 96" class="w-full h-full" xmlns="http://www.w3.org/2000/svg" aria-label="Logo PT SPIL">
+            <g fill="none" stroke="#c91d2b" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="11" r="5" fill="#ffffff" stroke-width="3.2"/>
+              <line x1="9" y1="16" x2="34" y2="92" stroke-width="3"/>
+              <line x1="13" y1="15" x2="38" y2="91" stroke-width="2.2"/>
+              <path d="M13 15 C 34 3, 56 20, 79 11 C 96 4, 110 8, 118 14 L 126 70 C 115 62, 100 58, 84 66 C 63 76, 44 58, 25 68 Z" fill="#ffffff" stroke-width="3.2"/>
+              <path d="M16 21 C 35 10, 56 26, 79 17 C 95 11, 108 14, 115 19" stroke-width="2.2"/>
+              <path d="M23 61 C 43 52, 62 69, 83 59 C 98 52, 112 56, 122 63" stroke-width="2.2"/>
+              <path d="M117 65 L 121 75 L 126 70" fill="#ffffff" stroke-width="2.4"/>
+            </g>
+            <g transform="translate(69, 46) rotate(4)" fill="#c91d2b">
+              <text x="0" y="0" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="900" font-size="31" letter-spacing="1.5">SPIL</text>
+            </g>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <h1 class="font-extrabold text-white text-base sm:text-lg leading-tight tracking-tight truncate">
+            5R PT SPIL
+          </h1>
+          <p class="text-[11px] sm:text-xs text-spilgreen-100 font-medium truncate">Pengirim Cabang • Penilai Tim HSE</p>
+        </div>
+      </div>
+
+      <!-- Desktop Navigation (2 Menu Peran + Dashboard) -->
+      <nav class="hidden md:flex items-center gap-1 bg-spilgreen-800/75 p-1 rounded-xl border border-spilgreen-600">
+        <button onclick="switchTab('sender')" data-nav="sender" class="nav-btn-desktop px-3.5 py-2 rounded-lg text-sm font-semibold transition">
+          📤 Pengirim (Cabang)
+        </button>
+        <button onclick="switchTab('hse')" data-nav="hse" class="nav-btn-desktop px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-1.5">
+          <span>🛡️ Penilai Tim HSE</span>
+          <span id="badge-pending-desktop" class="hidden px-1.5 py-0.5 rounded-full bg-spilred-600 text-white text-[11px] font-extrabold leading-none">0</span>
+        </button>
+        <button onclick="switchTab('dashboard')" data-nav="dashboard" class="nav-btn-desktop px-3.5 py-2 rounded-lg text-sm font-semibold transition">
+          📊 Dashboard
+        </button>
+      </nav>
+
+      <!-- Tombol Master & QR Area -->
+      <button onclick="openQrGalleryModal()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-spilgreen-50 active:scale-95 text-spilgreen-700 text-xs sm:text-sm font-bold shadow-xs shrink-0 transition">
+        <svg class="w-4 h-4 text-spilgreen-700" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 3h3m4 0h-4m0 0v4m0-4v-3m4 3v4" />
+        </svg>
+        <span>QR Area</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-5xl mx-auto px-4 pt-5">
+
+    <!-- ===================================================== -->
+    <!-- MENU 1: PENGIRIM CABANG / KANTOR (TANPA NILAI)        -->
+    <!-- ===================================================== -->
+    <section id="page-sender" class="tab-page space-y-5">
+
+      <!-- Banner Info Mode Pengirim -->
+      <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl bg-spilgreen-600 text-white flex items-center justify-center font-extrabold text-lg shrink-0">
+            📤
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 class="font-extrabold text-slate-900 text-base">Menu Pengirim (Tiap Cabang / Kantor)</h2>
+              <span class="px-2 py-0.5 rounded-full bg-spilgreen-100 text-spilgreen-800 text-[11px] font-bold">Tanpa Penilaian Skor</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">Scan QR atau pilih area, lalu kirim foto bukti 5R untuk dinilai oleh Tim HSE.</p>
+          </div>
+        </div>
+        <button id="btn-back-to-scanner" type="button" onclick="resetSenderSelection()" class="hidden px-3.5 py-2 rounded-xl bg-spilgreen-50 border border-spilgreen-200 text-spilgreen-800 text-xs font-bold hover:bg-spilgreen-100 shrink-0 transition">
+          ← Ganti Area / Scan Ulang
+        </button>
+      </div>
+
+      <!-- STEP 1 PENGIRIM: SCAN QR / PILIH CABANG, PENGIRIM, DIVISI & AREA -->
+      <div id="sender-step-select" class="space-y-5">
+
+        <!-- Card Scanner Kamera -->
+        <div class="bg-white rounded-2xl border border-spilgreen-200 shadow-sm overflow-hidden">
+          <div class="p-4 sm:p-5 border-b border-spilgreen-100 bg-spilgreen-50/40 flex items-center justify-between gap-2">
+            <div>
+              <h3 class="text-base sm:text-lg font-bold text-slate-900">Scan QR / Barcode Area</h3>
+              <p class="text-xs sm:text-sm text-slate-600">Pindai kode QR lokasi sebelum mengunggah foto bukti 5R.</p>
+            </div>
+            <span id="camera-status-badge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-white border border-spilgreen-200 text-spilgreen-700">
+              Kamera Siap
+            </span>
+          </div>
+
+          <div class="p-4 sm:p-5 space-y-4">
+            <div class="relative bg-slate-900 rounded-2xl overflow-hidden min-h-[220px] flex flex-col items-center justify-center">
+              <div id="qr-reader" class="w-full"></div>
+              <div id="scanner-placeholder" class="text-center p-6 text-slate-300 space-y-3">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-spilgreen-900/70 border border-spilgreen-700 flex items-center justify-center text-spilgreen-300">
+                  <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2m0 10v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-semibold text-white text-sm">Kamera Belum Aktif</p>
+                  <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">Tekan tombol di bawah untuk memindai QR Code area cabang/kantor.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="scanner-error" class="hidden p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-sm"></div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button id="btn-toggle-camera" onclick="toggleCamera()" class="w-full min-h-[52px] px-5 py-3 rounded-xl bg-spilgreen-600 hover:bg-spilgreen-700 active:scale-[0.99] text-white font-bold text-sm sm:text-base shadow-sm flex items-center justify-center gap-2 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span id="btn-camera-label">Mulai Scan Kamera</span>
+              </button>
+
+              <label class="w-full min-h-[52px] px-5 py-3 rounded-xl bg-spilgreen-50 hover:bg-spilgreen-100 border border-spilgreen-200 active:scale-[0.99] text-spilgreen-800 font-semibold text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer transition">
+                <svg class="w-5 h-5 text-spilgreen-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>Scan dari Gambar QR</span>
+                <input id="qr-file-input" type="file" accept="image/*" class="hidden" onchange="scanQrFromFile(this)" />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Pilih Cabang, Pengirim, Divisi & Area Manual -->
+        <div class="bg-white rounded-2xl border border-spilgreen-200 shadow-sm p-4 sm:p-6 space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-spilgreen-100 pb-4">
+            <div>
+              <h3 class="text-base sm:text-lg font-bold text-slate-900">Pilih Area / Input Kode Manual</h3>
+              <p class="text-xs sm:text-sm text-slate-500">Pilih Cabang/Kantor, Nama Pengirim, Divisi, lalu pilih area yang difoto.</p>
+            </div>
+            <button type="button" onclick="openAddAreaModal()" class="min-h-[44px] px-4 py-2 rounded-xl bg-spilgreen-600 hover:bg-spilgreen-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shrink-0 shadow-xs transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Tambah Area Mandiri</span>
+            </button>
+          </div>
+
+          <!-- Grid Pilihan Cabang/Kantor, Nama Pengirim, & Menu Divisi -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-spilgreen-50/70 border border-spilgreen-200 rounded-2xl p-4">
+
+            <!-- 1. Cabang / Kantor -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <label for="sender-branch-select" class="text-xs font-extrabold text-spilgreen-800 uppercase tracking-wider">Cabang / Kantor</label>
+                <button type="button" onclick="openAddBranchModal()" class="text-[11px] font-bold text-spilgreen-700 bg-white px-2 py-1 rounded-lg border border-spilgreen-200 hover:bg-spilgreen-50 transition">
+                  + Cabang
+                </button>
+              </div>
+              <select
+                id="sender-branch-select"
+                onchange="handleSenderBranchChange(this.value)"
+                class="w-full h-12 px-3 rounded-xl border border-spilgreen-200 bg-white focus:border-spilgreen-600 outline-none font-semibold text-sm text-slate-800"
+              ></select>
+            </div>
+
+            <!-- 2. Nama Pengirim -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <label for="sender-name-select" class="text-xs font-extrabold text-spilgreen-800 uppercase tracking-wider">Nama Pengirim</label>
+                <button type="button" onclick="openAddSenderModal()" class="text-[11px] font-bold text-spilgreen-700 bg-white px-2 py-1 rounded-lg border border-spilgreen-200 hover:bg-spilgreen-50 transition">
+                  + Pengirim
+                </button>
+              </div>
+              <select
+                id="sender-name-select"
+                onchange="handleSenderNameChange(this.value)"
+                class="w-full h-12 px-3 rounded-xl border border-spilgreen-200 bg-white focus:border-spilgreen-600 outline-none font-semibold text-sm text-slate-800"
+              ></select>
+            </div>
+
+            <!-- 3. Menu Divisi -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <label for="scanner-division-select" class="text-xs font-extrabold text-spilgreen-800 uppercase tracking-wider">Menu Divisi</label>
+                <button type="button" onclick="openAddDivisionModal()" class="text-[11px] font-bold text-spilgreen-700 bg-white px-2 py-1 rounded-lg border border-spilgreen-200 hover:bg-spilgreen-50 transition">
+                  + Divisi
+                </button>
+              </div>
+              <select
+                id="scanner-division-select"
+                onchange="renderQuickAreaChips()"
+                class="w-full h-12 px-3 rounded-xl border border-spilgreen-200 bg-white focus:border-spilgreen-600 outline-none font-semibold text-sm text-slate-800"
+              ></select>
+            </div>
+          </div>
+
+          <!-- Input Kode Manual -->
+          <form onsubmit="handleManualSubmit(event)" class="flex flex-col sm:flex-row gap-3">
+            <input
+              id="manual-area-code"
+              type="text"
+              placeholder="Ketik Kode Area Manual (Misal: SPIL-DEPO-01)"
+              class="flex-1 h-14 px-4 rounded-xl border border-slate-300 focus:border-spilgreen-600 focus:ring-2 focus:ring-spilgreen-100 outline-none font-semibold text-base uppercase tracking-wide"
+              required
+            />
+            <button type="submit" class="h-14 px-6 rounded-xl bg-spilgreen-700 hover:bg-spilgreen-800 active:scale-[0.99] text-white font-bold text-base transition">
+              Lanjut Upload Foto 5R
+            </button>
+          </form>
+
+          <!-- Daftar Area -->
+          <div>
+            <div class="flex items-center justify-between mb-2.5">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Daftar Area Inspeksi (<span id="area-count-badge">0</span>):
+              </p>
+              <button type="button" onclick="document.getElementById('scanner-division-select').value=''; renderQuickAreaChips();" class="text-xs font-semibold text-spilgreen-700 hover:underline">
+                Tampilkan Semua Divisi
+              </button>
+            </div>
+            <div id="quick-area-chips" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2 PENGIRIM: FORM KIRIM FOTO 5R (TANPA NILAI) -->
+      <form id="sender-submit-form" onsubmit="submitSenderReport(event)" class="hidden space-y-5">
+
+        <!-- Banner Area Terpilih -->
+        <div class="bg-gradient-to-br from-spilgreen-600 to-spilgreen-900 text-white rounded-2xl p-5 shadow-sm">
+          <div class="flex items-start justify-between gap-3">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span id="sender-form-area-code" class="inline-block px-2.5 py-0.5 rounded-md bg-white/20 text-xs font-bold tracking-wider uppercase">SPIL-DEPO-01</span>
+                <span class="inline-block px-2.5 py-0.5 rounded-md bg-amber-400 text-slate-900 text-[11px] font-extrabold">Form Pengirim (Tanpa Nilai)</span>
+              </div>
+              <h2 id="sender-form-area-name" class="text-xl font-extrabold leading-tight">Depo Petikemas</h2>
+              <p id="sender-form-area-dept" class="text-xs sm:text-sm text-spilgreen-100">Divisi</p>
+            </div>
+            <button type="button" onclick="resetSenderSelection()" class="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-semibold shrink-0 transition">
+              Ganti Area
+            </button>
+          </div>
+
+          <!-- Area baru belum terdaftar -->
+          <div id="custom-area-fields" class="hidden mt-4 pt-4 border-t border-white/20 space-y-3">
+            <p class="text-xs font-semibold text-spilgreen-100">Kode area belum terdaftar — lengkapi data untuk menyimpan area baru:</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-spilgreen-100 mb-1">Nama Area Baru *</label>
+                <input id="custom-area-name" type="text" placeholder="Misal: Gudang Sparepart Blok B" class="w-full h-11 px-3 rounded-lg bg-white text-slate-900 text-sm font-semibold outline-none" />
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-xs font-semibold text-spilgreen-100">Divisi *</label>
+                  <button type="button" onclick="openAddDivisionModal()" class="text-[11px] font-bold text-white underline">+ Divisi Baru</button>
+                </div>
+                <select id="custom-area-dept" class="w-full h-11 px-3 rounded-lg bg-white text-slate-900 text-sm font-semibold outline-none"></select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Identitas Cabang / Kantor & Pengirim -->
+        <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 sm:p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label for="form-branch-select" class="text-sm font-bold text-slate-900">Cabang / Kantor <span class="text-spilred-600">*</span></label>
+              <button type="button" onclick="openAddBranchModal()" class="text-xs font-bold text-spilgreen-700 hover:underline">+ Tambah Cabang</button>
+            </div>
+            <select id="form-branch-select" class="w-full h-12 px-3.5 rounded-xl border border-slate-300 bg-spilgreen-50/40 focus:border-spilgreen-600 outline-none text-sm font-semibold text-slate-800" required></select>
+          </div>
+
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label for="sender-name-input" class="text-sm font-bold text-slate-900">Nama Pengirim <span class="text-spilred-600">*</span></label>
+              <button type="button" onclick="openAddSenderModal()" class="text-xs font-bold text-spilgreen-700 hover:underline">+ Daftar Pengirim</button>
+            </div>
+            <input
+              id="sender-name-input"
+              type="text"
+              placeholder="Masukkan nama lengkap pengirim"
+              class="w-full h-12 px-4 rounded-xl border border-slate-300 focus:border-spilgreen-600 focus:ring-2 focus:ring-spilgreen-100 outline-none text-sm sm:text-base font-medium"
+              required
+            />
+          </div>
+        </div>
+
+        <!-- UPLOAD FOTO BUKTI PER ASPEK 5R (UNTUK DIKIRIM KE TIM HSE) -->
+        <div id="photo-upload-section" class="bg-white rounded-2xl border border-spilgreen-200 p-4 sm:p-5 shadow-sm space-y-4">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h3 class="text-sm sm:text-base font-bold text-slate-900">Upload Foto Kondisi 5R untuk Dinilai Tim HSE</h3>
+              <p class="text-xs text-slate-500 mt-0.5">Pilih aspek 5R di bawah, lalu ambil/unggah foto. Tim HSE akan memberi nilai 1–5 berdasarkan foto ini.</p>
+            </div>
+            <span id="photo-total-badge" class="px-2.5 py-1 rounded-full bg-spilgreen-50 border border-spilgreen-200 text-spilgreen-800 text-xs font-bold shrink-0">
+              0/5 Foto
+            </span>
+          </div>
+
+          <!-- Pilihan Masing-Masing 5R -->
+          <div class="space-y-1.5">
+            <p class="text-xs font-bold text-spilgreen-800 uppercase tracking-wider">1. Pilih Aspek 5R:</p>
+            <div id="photo-aspect-selector" class="grid grid-cols-2 sm:grid-cols-5 gap-2"></div>
+          </div>
+
+          <!-- Panduan singkat aspek aktif -->
+          <div id="active-aspect-guide" class="p-3 rounded-xl bg-spilgreen-50/70 border border-spilgreen-200 text-xs text-spilgreen-900"></div>
+
+          <!-- Tombol Kamera / Galeri untuk Aspek 5R Terpilih -->
+          <div class="space-y-1.5">
+            <p class="text-xs font-bold text-spilgreen-800 uppercase tracking-wider">
+              2. Ambil / Pilih Foto untuk <span id="active-photo-aspect-label" class="underline text-spilgreen-700">R1 - Ringkas</span>:
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="min-h-[54px] px-4 py-3 rounded-xl border-2 border-dashed border-spilgreen-400 bg-spilgreen-50/60 hover:bg-spilgreen-50 text-spilgreen-800 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span id="btn-camera-photo-text">Kamera (R1 Ringkas)</span>
+                <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoUpload(this)" />
+              </label>
+
+              <label class="min-h-[54px] px-4 py-3 rounded-xl border-2 border-dashed border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span id="btn-gallery-photo-text">Galeri (R1 Ringkas)</span>
+                <input type="file" accept="image/*" class="hidden" onchange="handlePhotoUpload(this)" />
+              </label>
+            </div>
+          </div>
+
+          <!-- Preview Foto per 5R -->
+          <div id="photo-previews-container" class="space-y-2.5"></div>
+        </div>
+
+        <!-- Keterangan Pengirim -->
+        <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 sm:p-5 shadow-sm space-y-2.5">
+          <label for="sender-notes" class="block text-sm font-bold text-slate-900">Keterangan / Laporan dari Cabang (Opsional)</label>
+          <textarea
+            id="sender-notes"
+            rows="3"
+            placeholder="Tuliskan keterangan kondisi area atau informasi tambahan untuk Tim HSE..."
+            class="w-full p-3.5 rounded-xl border border-slate-300 focus:border-spilgreen-600 focus:ring-2 focus:ring-spilgreen-100 outline-none text-sm sm:text-base"
+          ></textarea>
+        </div>
+
+        <!-- Tombol Kirim ke Tim HSE -->
+        <button type="submit" class="w-full min-h-[58px] rounded-2xl bg-spilgreen-600 hover:bg-spilgreen-700 active:scale-[0.99] text-white font-extrabold text-base sm:text-lg shadow-md shadow-spilgreen-600/20 transition flex items-center justify-center gap-2">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+          <span>Kirim Foto 5R ke Tim HSE</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- ===================================================== -->
+    <!-- MENU 2: PENILAI TIM HSE (NILAI 1-5 DARI FOTO KIRIMAN) -->
+    <!-- ===================================================== -->
+    <section id="page-hse" class="tab-page hidden space-y-5">
+
+      <!-- Banner Mode Tim HSE -->
+      <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl bg-spilgreen-800 text-white flex items-center justify-center font-extrabold text-lg shrink-0">
+            🛡️
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 class="font-extrabold text-slate-900 text-base">Menu Penilai — Tim HSE PT SPIL</h2>
+              <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold">Penilaian Skala 1–5</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">Periksa foto kiriman tiap cabang/kantor dan berikan skor 1–5 untuk masing-masing 5R.</p>
+          </div>
+        </div>
+        <button id="btn-back-to-hse-queue" type="button" onclick="closeHseGradingForm()" class="hidden px-3.5 py-2 rounded-xl bg-spilgreen-50 border border-spilgreen-200 text-spilgreen-800 text-xs font-bold hover:bg-spilgreen-100 shrink-0 transition">
+          ← Kembali ke Antrean
+        </button>
+      </div>
+
+      <!-- LIST ANTREAN KIRIMAN CABANG/KANTOR UNTUK TIM HSE -->
+      <div id="hse-queue-view" class="space-y-4">
+        <!-- Filter Antrean HSE -->
+        <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 shadow-sm space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="setHseStatusFilter('pending')" id="hse-tab-pending" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition">
+                Menunggu Penilaian (<span id="hse-count-pending">0</span>)
+              </button>
+              <button type="button" onclick="setHseStatusFilter('reviewed')" id="hse-tab-reviewed" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition">
+                Sudah Dinilai (<span id="hse-count-reviewed">0</span>)
+              </button>
+            </div>
+            <select id="hse-filter-branch" onchange="renderHseQueue()" class="h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm font-semibold outline-none">
+              <option value="">Semua Cabang / Kantor</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Daftar Kiriman -->
+        <div id="hse-queue-list" class="space-y-3"></div>
+      </div>
+
+      <!-- FORM PENILAIAN TIM HSE BERDASARKAN GAMBAR PENGIRIM -->
+      <form id="hse-grading-form" onsubmit="submitHseGrading(event)" class="hidden space-y-5">
+
+        <!-- Info Kiriman Cabang -->
+        <div class="bg-gradient-to-br from-spilgreen-700 to-spilgreen-900 text-white rounded-2xl p-5 shadow-sm space-y-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span id="hse-grade-branch-badge" class="px-2.5 py-0.5 rounded-md bg-white text-spilgreen-800 text-xs font-extrabold">Cabang</span>
+                <span id="hse-grade-area-code" class="px-2.5 py-0.5 rounded-md bg-white/20 text-xs font-bold uppercase">SPIL-DEPO-01</span>
+              </div>
+              <h2 id="hse-grade-area-name" class="text-xl font-extrabold leading-tight">Nama Area</h2>
+              <p id="hse-grade-meta" class="text-xs sm:text-sm text-spilgreen-100">Divisi • Pengirim • Tanggal</p>
+            </div>
+            <button type="button" onclick="closeHseGradingForm()" class="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-semibold shrink-0 transition">
+              Kembali
+            </button>
+          </div>
+
+          <div id="hse-sender-note-box" class="hidden bg-white/10 rounded-xl p-3 text-xs sm:text-sm text-spilgreen-50 border border-white/15">
+            <span class="font-bold text-white">Keterangan Pengirim:</span>
+            <span id="hse-sender-note-text" class="ml-1"></span>
+          </div>
+        </div>
+
+        <!-- Identitas Penilai Tim HSE -->
+        <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 sm:p-5 shadow-sm space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <label for="hse-evaluator-input" class="block text-sm font-bold text-slate-900">
+              Nama Penilai (Tim HSE) <span class="text-spilred-600">*</span>
+            </label>
+            <button type="button" onclick="openAddHseModal()" class="text-xs font-bold text-spilgreen-700 hover:underline">
+              + Daftar Tim HSE
+            </button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <select
+              id="hse-evaluator-select"
+              onchange="syncHseEvaluatorSelect(this.value)"
+              class="h-12 px-3.5 rounded-xl border border-slate-300 bg-spilgreen-50/40 focus:border-spilgreen-600 outline-none text-sm font-semibold text-slate-800"
+            ></select>
+            <input
+              id="hse-evaluator-input"
+              type="text"
+              placeholder="Ketik nama penilai Tim HSE"
+              class="h-12 px-4 rounded-xl border border-slate-300 focus:border-spilgreen-600 focus:ring-2 focus:ring-spilgreen-100 outline-none text-sm sm:text-base font-medium"
+              required
+            />
+          </div>
+        </div>
+
+        <!-- PENILAIAN R1-R5 LANGSUNG DARI GAMBAR YANG DIKIRIM PENGIRIM -->
+        <div id="hse-grading-aspects" class="space-y-4"></div>
+
+        <!-- Live Score Penilaian HSE -->
+        <div class="bg-spilgreen-900 text-white rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-sm">
+          <div>
+            <p class="text-xs text-spilgreen-200 font-semibold uppercase tracking-wider">Hasil Penilaian Tim HSE</p>
+            <div class="flex items-baseline gap-2 mt-0.5">
+              <span id="live-avg-score" class="text-3xl font-extrabold">0.0</span>
+              <span class="text-sm text-spilgreen-200">/ 5.0 (<span id="live-total-score">0</span>/25)</span>
+            </div>
+          </div>
+          <span id="live-grade-badge" class="px-3.5 py-1.5 rounded-xl bg-spilgreen-800 text-spilgreen-100 text-xs sm:text-sm font-bold">
+            0/5 Aspek Dinilai
+          </span>
+        </div>
+
+        <!-- Catatan Evaluasi Tim HSE -->
+        <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 sm:p-5 shadow-sm space-y-3">
+          <label for="hse-notes-input" class="block text-sm font-bold text-slate-900">Catatan Evaluasi & Rekomendasi Tim HSE</label>
+          <textarea
+            id="hse-notes-input"
+            rows="3"
+            placeholder="Tuliskan hasil verifikasi foto, temuan ketidaksesuaian, atau rekomendasi perbaikan untuk cabang/kantor..."
+            class="w-full p-3.5 rounded-xl border border-slate-300 focus:border-spilgreen-600 focus:ring-2 focus:ring-spilgreen-100 outline-none text-sm sm:text-base"
+          ></textarea>
+          <div class="flex flex-wrap gap-1.5">
+            <button type="button" onclick="appendHseNoteTag('Foto bukti sesuai standar 5R PT SPIL.')" class="px-2.5 py-1 rounded-lg bg-spilgreen-50 hover:bg-spilgreen-100 border border-spilgreen-200 text-xs font-medium text-spilgreen-800">+ Sesuai standar 5R</button>
+            <button type="button" onclick="appendHseNoteTag('Perlu perapian alat & kabel sebelum audit berikutnya.')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700">+ Perlu perapian</button>
+            <button type="button" onclick="appendHseNoteTag('Segera perjelas marka zona & label rak.')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700">+ Perjelas marka/label</button>
+            <button type="button" onclick="appendHseNoteTag('Tingkatkan kebersihan area lantai & pemilahan sampah.')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700">+ Tingkatkan kebersihan</button>
+          </div>
+        </div>
+
+        <!-- Tombol Simpan Penilaian HSE -->
+        <button type="submit" class="w-full min-h-[58px] rounded-2xl bg-spilgreen-600 hover:bg-spilgreen-700 active:scale-[0.99] text-white font-extrabold text-base sm:text-lg shadow-md shadow-spilgreen-600/20 transition flex items-center justify-center gap-2">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          <span>Simpan Nilai HSE</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- ===================================================== -->
+    <!-- MENU 3: DASHBOARD REKAPITULASI & RIWAYAT              -->
+    <!-- ===================================================== -->
+    <section id="page-dashboard" class="tab-page hidden space-y-6">
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 shadow-sm">
+          <p class="text-xs font-semibold text-slate-500">Total Kiriman</p>
+          <p id="kpi-total-audits" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</p>
+          <p id="kpi-pending-info" class="text-[11px] text-amber-600 font-semibold mt-1">0 menunggu HSE</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 shadow-sm">
+          <p class="text-xs font-semibold text-slate-500">Rata-rata 5R (HSE)</p>
+          <p id="kpi-avg-score" class="text-2xl sm:text-3xl font-extrabold text-spilgreen-600 mt-1">0.0</p>
+          <p id="kpi-avg-percent" class="text-[11px] text-slate-400 mt-1">Skala 5.0 (0%)</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 shadow-sm">
+          <p class="text-xs font-semibold text-slate-500">Area Terbaik</p>
+          <p id="kpi-best-area" class="text-sm sm:text-base font-extrabold text-slate-900 mt-1.5 truncate">-</p>
+          <p id="kpi-best-score" class="text-xs font-semibold text-spilgreen-600 mt-0.5">-</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 shadow-sm">
+          <p class="text-xs font-semibold text-slate-500">Perlu Perhatian</p>
+          <p id="kpi-low-count" class="text-2xl sm:text-3xl font-extrabold text-spilred-600 mt-1">0</p>
+          <p class="text-[11px] text-slate-400 mt-1">Area skor &lt; 3.5</p>
+        </div>
+      </div>
+
+      <!-- Rekapitulasi Skor 5R Per Cabang & Area -->
+      <div class="bg-white rounded-2xl border border-spilgreen-200 shadow-sm overflow-hidden">
+        <div class="p-4 sm:p-5 border-b border-spilgreen-100 bg-spilgreen-50/40 flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">Rekapitulasi Skor 5R per Cabang & Area</h2>
+            <p class="text-xs text-slate-500">Berdasarkan hasil penilaian skala 1–5 oleh Tim HSE PT SPIL</p>
+          </div>
+          <button onclick="switchTab('sender')" class="px-3.5 py-2 rounded-xl bg-spilgreen-600 text-white hover:bg-spilgreen-700 text-xs sm:text-sm font-bold transition">
+            + Kirim Foto
+          </button>
+        </div>
+        <div id="area-summary-list" class="divide-y divide-slate-100"></div>
+      </div>
+
+      <!-- Riwayat Lengkap + Filter + Export CSV -->
+      <div class="bg-white rounded-2xl border border-spilgreen-200 shadow-sm overflow-hidden">
+        <div class="p-4 sm:p-5 border-b border-spilgreen-100 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-base sm:text-lg font-bold text-slate-900">Riwayat Kiriman & Penilaian Lengkap</h2>
+              <p id="history-count-label" class="text-xs text-slate-500">Menampilkan 0 hasil</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="exportToCSV()" class="flex-1 sm:flex-none min-h-[46px] px-4 py-2.5 rounded-xl bg-spilgreen-600 hover:bg-spilgreen-700 active:scale-[0.99] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span>Export CSV</span>
+              </button>
+              <button onclick="resetDemoData()" title="Reset Data Demo" class="min-h-[46px] px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs transition">
+                Reset Demo
+              </button>
+            </div>
+          </div>
+
+          <!-- Filter Bar -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+            <input
+              id="filter-search"
+              type="text"
+              placeholder="Cari pengirim / HSE / area..."
+              oninput="renderDashboard()"
+              class="h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-spilgreen-500 outline-none text-sm"
+            />
+            <select id="filter-branch" onchange="renderDashboard()" class="h-11 px-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none text-sm font-medium">
+              <option value="">Semua Cabang/Kantor</option>
+            </select>
+            <select id="filter-area" onchange="renderDashboard()" class="h-11 px-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none text-sm font-medium">
+              <option value="">Semua Area</option>
+            </select>
+            <select id="filter-status" onchange="renderDashboard()" class="h-11 px-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none text-sm font-medium">
+              <option value="all">Semua Status</option>
+              <option value="pending">Menunggu Tim HSE</option>
+              <option value="reviewed">Sudah Dinilai HSE</option>
+            </select>
+            <select id="filter-grade" onchange="renderDashboard()" class="h-11 px-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white outline-none text-sm font-medium">
+              <option value="all">Semua Skor</option>
+              <option value="good">Baik (≥ 4.0)</option>
+              <option value="fair">Cukup (3.0 – 3.9)</option>
+              <option value="poor">Kurang (&lt; 3.0)</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="audit-history-list" class="divide-y divide-slate-100"></div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- MOBILE BOTTOM NAVIGATION BAR -->
+  <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-spilgreen-200 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+    <div class="grid grid-cols-3 h-16">
+      <button onclick="switchTab('sender')" data-nav="sender" class="nav-btn-mobile flex flex-col items-center justify-center gap-1 text-xs font-semibold transition">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span>Pengirim</span>
+      </button>
+      <button onclick="switchTab('hse')" data-nav="hse" class="nav-btn-mobile relative flex flex-col items-center justify-center gap-1 text-xs font-semibold transition">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        <span>Penilai HSE</span>
+        <span id="badge-pending-mobile" class="hidden absolute top-1.5 right-6 px-1.5 py-0.5 rounded-full bg-spilred-600 text-white text-[10px] font-extrabold leading-none">0</span>
+      </button>
+      <button onclick="switchTab('dashboard')" data-nav="dashboard" class="nav-btn-mobile flex flex-col items-center justify-center gap-1 text-xs font-semibold transition">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <span>Dashboard</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MODAL TAMBAH CABANG / KANTOR MANDIRI -->
+  <div id="modal-add-branch" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-spilgreen-100 bg-spilgreen-50/50 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Tambah Cabang / Kantor Mandiri</h3>
+          <p class="text-xs text-slate-500">Cabang/Kantor baru otomatis tersedia untuk pengirim & filter HSE.</p>
+        </div>
+        <button onclick="closeAddBranchModal()" class="w-9 h-9 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold">✕</button>
+      </div>
+      <form onsubmit="submitNewBranch(event)" class="p-5 space-y-4">
+        <div class="space-y-1.5">
+          <label for="new-branch-name" class="text-xs font-bold text-slate-700 uppercase tracking-wider">Nama Cabang / Kantor *</label>
+          <input id="new-branch-name" type="text" placeholder="Misal: Cabang Balikpapan / Kantor Jayapura" class="w-full h-12 px-3.5 rounded-xl border border-slate-300 focus:border-spilgreen-600 outline-none font-semibold text-sm" required />
+        </div>
+        <div class="space-y-1.5">
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cabang/Kantor Terdaftar:</p>
+          <div id="branch-manage-list" class="max-h-40 overflow-y-auto flex flex-wrap gap-1.5"></div>
+        </div>
+        <button type="submit" class="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-spilgreen-600 hover:bg-spilgreen-700 text-white font-bold text-sm shadow-sm transition">
+          Simpan Cabang / Kantor
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL TAMBAH DIVISI MANDIRI -->
+  <div id="modal-add-division" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-spilgreen-100 bg-spilgreen-50/50 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Tambah Divisi Mandiri</h3>
+          <p class="text-xs text-slate-500">Divisi baru otomatis tersedia di semua menu pilihan.</p>
+        </div>
+        <button onclick="closeAddDivisionModal()" class="w-9 h-9 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold">✕</button>
+      </div>
+      <form onsubmit="submitNewDivision(event)" class="p-5 space-y-4">
+        <div class="space-y-1.5">
+          <label for="new-division-name" class="text-xs font-bold text-slate-700 uppercase tracking-wider">Nama Divisi Baru *</label>
+          <input id="new-division-name" type="text" placeholder="Misal: Operasional Reefer / IT & Digital" class="w-full h-12 px-3.5 rounded-xl border border-slate-300 focus:border-spilgreen-600 outline-none font-semibold text-sm" required />
+        </div>
+        <div class="space-y-1.5">
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Divisi Terdaftar:</p>
+          <div id="division-manage-list" class="max-h-40 overflow-y-auto flex flex-wrap gap-1.5"></div>
+        </div>
+        <button type="submit" class="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-spilgreen-600 hover:bg-spilgreen-700 text-white font-bold text-sm shadow-sm transition">
+          Simpan Divisi
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL TAMBAH PENGIRIM MANDIRI -->
+  <div id="modal-add-sender" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-spilgreen-100 bg-spilgreen-50/50 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Tambah Nama Pengirim</h3>
+          <p class="text-xs text-slate-500">Daftar PIC / pengirim foto dari cabang atau kantor.</p>
+        </div>
+        <button onclick="closeAddSenderModal()" class="w-9 h-9 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold">✕</button>
+      </div>
+      <form onsubmit="submitNewSender(event)" class="p-5 space-y-4">
+        <div class="space-y-1.5">
+          <label for="new-sender-name" class="text-xs font-bold text-slate-700 uppercase tracking-wider">Nama Pengirim *</label>
+          <input id="new-sender-name" type="text" placeholder="Misal: Hendra Wijaya (PIC Surabaya)" class="w-full h-12 px-3.5 rounded-xl border border-slate-300 focus:border-spilgreen-600 outline-none font-semibold text-sm" required />
+        </div>
+        <div class="space-y-1.5">
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Daftar Pengirim Terdaftar:</p>
+          <div id="sender-manage-list" class="max-h-40 overflow-y-auto flex flex-wrap gap-1.5"></div>
+        </div>
+        <button type="submit" class="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-spilgreen-600 hover:bg-spilgreen-700 text-white font-bold text-sm shadow-sm transition">
+          Simpan Nama Pengirim
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL TAMBAH PENILAI TIM HSE MANDIRI -->
+  <div id="modal-add-hse" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-spilgreen-100 bg-spilgreen-50/50 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Tambah Nama Penilai Tim HSE</h3>
+          <p class="text-xs text-slate-500">Daftar penilai resmi dari Tim HSE PT SPIL.</p>
+        </div>
+        <button onclick="closeAddHseModal()" class="w-9 h-9 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold">✕</button>
+      </div>
+      <form onsubmit="submitNewHseEvaluator(event)" class="p-5 space-y-4">
+        <div class="space-y-1.5">
+          <label for="new-hse-name" class="text-xs font-bold text-slate-700 uppercase tracking-wider">Nama Penilai HSE *</label>
+          <input id="new-hse-name" type="text" placeholder="Misal: Irfan Hakim (HSE Officer)" class="w-full h-12 px-3.5 rounded-xl border border-slate-300 focus:border-spilgreen-600 outline-none font-semibold text-sm" required />
+        </div>
+        <div class="space-y-1.5">
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Daftar Tim HSE Terdaftar:</p>
+          <div id="hse-manage-list" class="max-h-40 overflow-y-auto flex flex-wrap gap-1.5"></div>
+        </div>
+        <button type="submit" class="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-spilgreen-600 hover:bg-spilgreen-700 text-white font-bold text-sm shadow-sm transition">
+          Simpan Penilai HSE
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL TAMBAH AREA INSPEKSI MANDIRI -->
+  <div id="modal-add-area" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-spilgreen-100 bg-spilgreen-50/50 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Tambah Area Inspeksi Baru</h3>
+          <p class="text-xs text-slate-500">Area baru otomatis tersimpan & dibuatkan QR Code.</p>
+        </div>
+        <button onclick="closeAddAreaModal()" class="w-9 h-9 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold">✕</button>
+      </div>
+
+      <form onsubmit="submitNewArea(event)" class="p-5 space-y-4">
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label for="new-area-code" class="text-xs font-bold text-slate-700 uppercase tracking-wider">Kode Area *</label>
+            <button type="button" onclick="autoGenerateAreaCode()" class="text-xs font-bold text-spilgreen-700 hover:underline">
+              Buat Kode Otomatis
+            </button>
+          </div>
+          <input id="new-area-code" type="text" placeholder="Misal: SPIL-DEPO-02" class="w-full h-12 px-3.5 rounded-xl border border-slate-300 focus:border-spilgreen-600 outline-none font-bold text-sm uppercase tracking-wide" required />
+        </div>
+
+        <div class="space-y-1.5">
+          <label for="new-area-name" class="text-xs font-bold text-slate-700 uppercase tracking-wider">Nama Area / Lokasi *</label>
+          <input id="new-area-name" type="text" placeholder="Misal: Depo Petikemas Blok C" class="w-full h-12 px-3.5 rounded-xl border border-slate-300 focus:border-spilgreen-600 outline-none font-semibold text-sm" required />
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label for="new-area-dept" class="text-xs font-bold text-slate-700 uppercase tracking-wider">Divisi *</label>
+            <button type="button" onclick="openAddDivisionModal()" class="text-xs font-bold text-spilgreen-700 hover:underline">+ Tambah Divisi</button>
+          </div>
+          <select id="new-area-dept" class="w-full h-12 px-3.5 rounded-xl border border-slate-300 bg-white focus:border-spilgreen-600 outline-none font-semibold text-sm" required></select>
+        </div>
+
+        <div class="pt-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <button type="submit" onclick="setAddAreaAction('save')" class="min-h-[48px] px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm transition">
+            Simpan Saja
+          </button>
+          <button type="submit" onclick="setAddAreaAction('send')" class="min-h-[48px] px-4 py-2.5 rounded-xl bg-spilgreen-600 hover:bg-spilgreen-700 text-white font-bold text-sm shadow-sm transition">
+            Simpan & Kirim Foto
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DETAIL LAPORAN / AUDIT -->
+  <div id="modal-detail" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+      <div class="sticky top-0 bg-white px-5 py-4 border-b border-spilgreen-100 flex items-center justify-between">
+        <h3 class="font-bold text-slate-900 text-base">Detail Laporan 5R</h3>
+        <button onclick="closeDetailModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 font-bold">✕</button>
+      </div>
+      <div id="modal-detail-body" class="p-5 space-y-4"></div>
+    </div>
+  </div>
+
+  <!-- MODAL ZOOM FOTO (UNTUK TIM HSE INSPEKSI GAMBAR) -->
+  <div id="modal-lightbox" onclick="closeLightbox()" class="hidden fixed inset-0 z-[70] bg-slate-950/90 flex flex-col items-center justify-center p-4">
+    <div class="w-full max-w-2xl flex items-center justify-between text-white mb-3" onclick="event.stopPropagation()">
+      <p id="lightbox-title" class="font-bold text-sm sm:text-base"></p>
+      <button onclick="closeLightbox()" class="px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-bold">✕ Tutup</button>
+    </div>
+    <img id="lightbox-img" src="" alt="Zoom Foto 5R" class="max-w-full max-h-[82vh] rounded-xl object-contain shadow-2xl" onclick="event.stopPropagation()" />
+  </div>
+
+  <!-- MODAL GENERATOR / KELOLA & CETAK QR CODE AREA -->
+  <div id="modal-qr" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:max-w-3xl rounded-t-3xl sm:rounded-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+      <div class="sticky top-0 z-10 bg-white px-5 py-4 border-b border-spilgreen-100 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Master Area & QR Code PT SPIL</h3>
+          <p class="text-xs text-slate-500">Scan langsung, cetak label QR, atau tambah area baru.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="closeQrModal(); openAddAreaModal();" class="px-3 py-2 rounded-xl bg-spilgreen-50 text-spilgreen-700 hover:bg-spilgreen-100 border border-spilgreen-200 text-xs font-bold">+ Tambah Area</button>
+          <button onclick="window.print()" class="px-3.5 py-2 rounded-xl bg-spilgreen-600 text-white text-xs font-bold hover:bg-spilgreen-700">Cetak QR</button>
+          <button onclick="closeQrModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 font-bold">✕</button>
+        </div>
+      </div>
+      <div id="qr-print-area" class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-[80] hidden px-4 py-3 rounded-xl bg-spilgreen-900 text-white text-sm font-semibold shadow-lg border border-spilgreen-700 transition-all whitespace-nowrap"></div>
+
+  <!-- ===================================================== -->
+  <!-- JAVASCRIPT APPLICATION LOGIC                          -->
+  <!-- ===================================================== -->
+  <script>
+    // ==========================================
+    // 1. DATA MASTER & KONFIGURASI 5R PT SPIL
+    // ==========================================
+    const STORAGE_KEY_RECORDS = 'spil_5r_reports_v3';
+    const STORAGE_KEY_AREAS = 'spil_5r_areas_v3';
+    const STORAGE_KEY_DIVISIONS = 'spil_5r_divisions_v3';
+    const STORAGE_KEY_BRANCHES = 'spil_5r_branches_v3';
+    const STORAGE_KEY_SENDERS = 'spil_5r_senders_v3';
+    const STORAGE_KEY_HSE_TEAM = 'spil_5r_hse_team_v3';
+    const STORAGE_KEY_LAST_BRANCH = 'spil_5r_last_branch_v3';
+    const STORAGE_KEY_LAST_SENDER = 'spil_5r_last_sender_v3';
+    const STORAGE_KEY_LAST_HSE = 'spil_5r_last_hse_v3';
+
+    const DEFAULT_BRANCHES = [
+      'Kantor Pusat Surabaya',
+      'Cabang Jakarta (Tanjung Priok)',
+      'Cabang Makassar',
+      'Cabang Belawan / Medan',
+      'Cabang Semarang',
+      'Cabang Banjarmasin'
+    ];
+
+    const DEFAULT_DIVISIONS = [
+      'Operasional Depo & Container Yard',
+      'Terminal & Dermaga',
+      'Logistik & Gudang CFS',
+      'Workshop & Alat Berat',
+      'Armada & Operasional Kapal',
+      'HSE & Quality',
+      'Kantor & General Affairs'
+    ];
+
+    const DEFAULT_SENDERS = [
+      'Budi Santoso (PIC Surabaya)',
+      'Rina Kusuma (PIC Jakarta)',
+      'Ahmad Fauzi (PIC Makassar)',
+      'Dian Permata (Kantor)'
+    ];
+
+    const DEFAULT_HSE_TEAM = [
+      'Siti Rahma (HSE Lead)',
+      'Andi Wijaya (HSE Officer)',
+      'Dewi Lestari (HSE Auditor)'
+    ];
+
+    const DEFAULT_AREAS = [
+      { code: 'SPIL-DEPO-01', name: 'Depo Petikemas Utama (CY-01)', dept: 'Operasional Depo & Container Yard' },
+      { code: 'SPIL-TRM-01',  name: 'Area Dermaga & Bongkar Muat', dept: 'Terminal & Dermaga' },
+      { code: 'SPIL-CFS-01',  name: 'Gudang CFS & Stuffing LCL', dept: 'Logistik & Gudang CFS' },
+      { code: 'SPIL-WKS-01',  name: 'Workshop Alat Berat & Reach Stacker', dept: 'Workshop & Alat Berat' },
+      { code: 'SPIL-MNT-01',  name: 'Area Repair & Washing Container', dept: 'Operasional Depo & Container Yard' },
+      { code: 'SPIL-OFF-01',  name: 'Kantor Operasional & Pelayanan Pelanggan', dept: 'Kantor & General Affairs' }
+    ];
+
+    const FIVE_R_ASPECTS = [
+      {
+        key: 'ringkas',
+        code: 'R1',
+        shortTitle: 'Ringkas',
+        title: 'Ringkas (Seiri)',
+        desc: 'Memilah barang/peralatan yang diperlukan dan menyingkirkan barang tidak terpakai dari area kerja.',
+        color: 'bg-spilgreen-50 text-spilgreen-700 border-spilgreen-200'
+      },
+      {
+        key: 'rapi',
+        code: 'R2',
+        shortTitle: 'Rapi',
+        title: 'Rapi (Seiton)',
+        desc: 'Penataan alat, dokumen, palet, dan container sesuai marka zona dengan identitas/label jelas.',
+        color: 'bg-teal-50 text-teal-700 border-teal-200'
+      },
+      {
+        key: 'resik',
+        code: 'R3',
+        shortTitle: 'Resik',
+        title: 'Resik (Seiso)',
+        desc: 'Kebersihan lantai, yard, mesin, meja kerja, bebas debu, ceceran oli, atau sampah berserakan.',
+        color: 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      },
+      {
+        key: 'rawat',
+        code: 'R4',
+        shortTitle: 'Rawat',
+        title: 'Rawat (Seiketsu)',
+        desc: 'Standarisasi visual control, jadwal piket/inspeksi rutin, dan konsistensi menjaga 3R pertama.',
+        color: 'bg-amber-50 text-amber-700 border-amber-200'
+      },
+      {
+        key: 'rajin',
+        code: 'R5',
+        shortTitle: 'Rajin',
+        title: 'Rajin (Shitsuke)',
+        desc: 'Kedisiplinan personel mematuhi SOP 5R, penggunaan APD wajib, serta budaya kerja berkelanjutan.',
+        color: 'bg-sky-50 text-sky-700 border-sky-200'
+      }
+    ];
+
+    const SCORE_LABELS = {
+      1: { text: '1 - Sangat Kurang', cls: 'bg-spilred-600 text-white border-spilred-600' },
+      2: { text: '2 - Kurang', cls: 'bg-orange-500 text-white border-orange-500' },
+      3: { text: '3 - Cukup', cls: 'bg-amber-500 text-white border-amber-500' },
+      4: { text: '4 - Baik', cls: 'bg-spilgreen-500 text-white border-spilgreen-500' },
+      5: { text: '5 - Sangat Baik', cls: 'bg-spilgreen-700 text-white border-spilgreen-700' }
+    };
+
+    function createEmptyPhotos() {
+      return { ringkas: '', rapi: '', resik: '', rawat: '', rajin: '' };
+    }
+
+    // State Aplikasi
+    let branches = [];
+    let divisions = [];
+    let senders = [];
+    let hseTeam = [];
+    let areas = [];
+    let records = [];
+
+    // State Pengirim
+    let activeSenderArea = null;
+    let senderPhotos = createEmptyPhotos();
+    let selectedPhotoAspect = 'ringkas';
+    let html5QrCode = null;
+    let isCameraRunning = false;
+    let addAreaSubmitAction = 'send';
+
+    // State Penilai Tim HSE
+    let hseStatusFilter = 'pending';
+    let activeGradingId = null;
+    let hseScores = { ringkas: 0, rapi: 0, resik: 0, rawat: 0, rajin: 0 };
+
+    // ==========================================
+    // 2. INISIALISASI & DEMO DATA
+    // ==========================================
+    function initApp() {
+      loadAllData();
+      renderAllDropdowns();
+      renderQuickAreaChips();
+      renderPhotoUploadUI();
+      updatePendingBadges();
+      renderHseQueue();
+      renderDashboard();
+      switchTab('sender');
+    }
+
+    function loadList(key, defaults) {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        try { return JSON.parse(saved); } catch { /* fallback */ }
+      }
+      localStorage.setItem(key, JSON.stringify(defaults));
+      return [...defaults];
+    }
+
+    function loadAllData() {
+      branches = loadList(STORAGE_KEY_BRANCHES, DEFAULT_BRANCHES);
+      divisions = loadList(STORAGE_KEY_DIVISIONS, DEFAULT_DIVISIONS);
+      senders = loadList(STORAGE_KEY_SENDERS, DEFAULT_SENDERS);
+      hseTeam = loadList(STORAGE_KEY_HSE_TEAM, DEFAULT_HSE_TEAM);
+      areas = loadList(STORAGE_KEY_AREAS, DEFAULT_AREAS);
+
+      const savedRecords = localStorage.getItem(STORAGE_KEY_RECORDS);
+      if (savedRecords) {
+        try { records = JSON.parse(savedRecords); } catch { records = generateDemoRecords(); }
+      } else {
+        records = generateDemoRecords();
+        localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
+      }
+    }
+
+    // Helper membuat gambar demo ilustratif agar Penilai Tim HSE langsung bisa menguji skala 1-5 dari gambar
+    function createDemoSamplePhoto(labelR, areaText, branchText, bgHex) {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 480;
+        canvas.height = 300;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = bgHex || '#ecfdf5';
+        ctx.fillRect(0, 0, 480, 300);
+
+        // Border & header strip
+        ctx.fillStyle = '#006130';
+        ctx.fillRect(0, 0, 480, 56);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText(`FOTO BUKTI ${labelR} — PT SPIL`, 20, 36);
+
+        // Ilustrasi visual kotak container / area
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(24, 78, 432, 168);
+        ctx.strokeStyle = '#86efac';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(24, 78, 432, 168);
+
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText(areaText, 40, 122);
+
+        ctx.fillStyle = '#007a3d';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(branchText, 40, 152);
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('Contoh foto kiriman cabang untuk dinilai Tim HSE (1–5)', 40, 195);
+        ctx.fillText('Klik foto ini di mode Penilai HSE untuk zoom.', 40, 218);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '12px sans-serif';
+        ctx.fillText('5R PT SPIL • Lampiran Bukti Lapangan', 24, 276);
+
+        return canvas.toDataURL('image/jpeg', 0.72);
+      } catch {
+        return '';
+      }
+    }
+
+    function generateDemoRecords() {
+      const now = Date.now();
+      const hour = 3600000;
+      const day = 86400000;
+
+      return [
+        {
+          id: 'SPIL-205',
+          status: 'pending',
+          timestamp: new Date(now - 1 * hour).toISOString(),
+          branch: 'Kantor Pusat Surabaya',
+          areaCode: 'SPIL-DEPO-01',
+          areaName: 'Depo Petikemas Utama (CY-01)',
+          dept: 'Operasional Depo & Container Yard',
+          senderName: 'Budi Santoso (PIC Surabaya)',
+          senderNotes: 'Foto kondisi blok CY-01 pagi ini setelah pembersihan jalur trailer. Mohon penilaian Tim HSE.',
+          photos: {
+            ringkas: createDemoSamplePhoto('R1 RINGKAS', 'Zona Penyimpanan Container CY-01', 'Kantor Pusat Surabaya', '#f0fdf4'),
+            rapi: createDemoSamplePhoto('R2 RAPI', 'Penataan Peralatan & Marka Jalur', 'Kantor Pusat Surabaya', '#ecfeff'),
+            resik: createDemoSamplePhoto('R3 RESIK', 'Kebersihan Lantai Yard & Drainase', 'Kantor Pusat Surabaya', '#f0fdf4'),
+            rawat: '',
+            rajin: ''
+          },
+          scores: null,
+          totalScore: null,
+          avgScore: null,
+          hseEvaluator: '',
+          hseNotes: '',
+          reviewedAt: null
+        },
+        {
+          id: 'SPIL-204',
+          status: 'pending',
+          timestamp: new Date(now - 3 * hour).toISOString(),
+          branch: 'Cabang Jakarta (Tanjung Priok)',
+          areaCode: 'SPIL-CFS-01',
+          areaName: 'Gudang CFS & Stuffing LCL',
+          dept: 'Logistik & Gudang CFS',
+          senderName: 'Rina Kusuma (PIC Jakarta)',
+          senderNotes: 'Laporan foto mingguan gudang CFS dock 1–4. Ada beberapa palet yang sedang dirapikan.',
+          photos: {
+            ringkas: createDemoSamplePhoto('R1 RINGKAS', 'Area Sorting Barang LCL', 'Cabang Jakarta (Tanjung Priok)', '#f0fdf4'),
+            rapi: '',
+            resik: createDemoSamplePhoto('R3 RESIK', 'Lantai Loading Dock 1-4', 'Cabang Jakarta (Tanjung Priok)', '#fefce8'),
+            rawat: createDemoSamplePhoto('R4 RAWAT', 'Papan Jadwal Piket 5R CFS', 'Cabang Jakarta (Tanjung Priok)', '#f0fdf4'),
+            rajin: ''
+          },
+          scores: null,
+          totalScore: null,
+          avgScore: null,
+          hseEvaluator: '',
+          hseNotes: '',
+          reviewedAt: null
+        },
+        {
+          id: 'SPIL-203',
+          status: 'reviewed',
+          timestamp: new Date(now - 1 * day).toISOString(),
+          branch: 'Cabang Makassar',
+          areaCode: 'SPIL-OFF-01',
+          areaName: 'Kantor Operasional & Pelayanan Pelanggan',
+          dept: 'Kantor & General Affairs',
+          senderName: 'Ahmad Fauzi (PIC Makassar)',
+          senderNotes: 'Foto meja layanan pelanggan dan ruang arsip dokumen manifest.',
+          photos: {
+            ringkas: createDemoSamplePhoto('R1 RINGKAS', 'Meja Layanan & Arsip Manifest', 'Cabang Makassar', '#f0fdf4'),
+            rapi: createDemoSamplePhoto('R2 RAPI', 'Rak Dokumen Berlabel', 'Cabang Makassar', '#ecfeff'),
+            resik: '',
+            rawat: '',
+            rajin: ''
+          },
+          scores: { ringkas: 5, rapi: 5, resik: 5, rawat: 4, rajin: 5 },
+          totalScore: 24,
+          avgScore: 4.8,
+          hseEvaluator: 'Siti Rahma (HSE Lead)',
+          hseNotes: 'Foto sangat baik, arsip rapi dengan label jelas dan meja kerja bebas barang tidak perlu.',
+          reviewedAt: new Date(now - 18 * hour).toISOString()
+        },
+        {
+          id: 'SPIL-202',
+          status: 'reviewed',
+          timestamp: new Date(now - 2 * day).toISOString(),
+          branch: 'Kantor Pusat Surabaya',
+          areaCode: 'SPIL-WKS-01',
+          areaName: 'Workshop Alat Berat & Reach Stacker',
+          dept: 'Workshop & Alat Berat',
+          senderName: 'Budi Santoso (PIC Surabaya)',
+          senderNotes: 'Kondisi bay servis alat berat setelah perbaikan forklift.',
+          photos: {
+            ringkas: '',
+            rapi: createDemoSamplePhoto('R2 RAPI', 'Shadow Board Kunci Workshop', 'Kantor Pusat Surabaya', '#fff7ed'),
+            resik: createDemoSamplePhoto('R3 RESIK', 'Lantai Bay Servis Alat Berat', 'Kantor Pusat Surabaya', '#fef2f2'),
+            rawat: '',
+            rajin: ''
+          },
+          scores: { ringkas: 3, rapi: 3, resik: 2, rawat: 3, rajin: 3 },
+          totalScore: 14,
+          avgScore: 2.8,
+          hseEvaluator: 'Andi Wijaya (HSE Officer)',
+          hseNotes: 'Terlihat ceceran oli di lantai bay servis pada foto R3 dan kunci pas belum kembali ke papan alat.',
+          reviewedAt: new Date(now - 36 * hour).toISOString()
+        }
+      ];
+    }
+
+    function resetDemoData() {
+      if (!confirm('Reset semua data ke contoh awal 5R PT SPIL?')) return;
+      branches = [...DEFAULT_BRANCHES];
+      divisions = [...DEFAULT_DIVISIONS];
+      senders = [...DEFAULT_SENDERS];
+      hseTeam = [...DEFAULT_HSE_TEAM];
+      areas = [...DEFAULT_AREAS];
+      records = generateDemoRecords();
+
+      localStorage.setItem(STORAGE_KEY_BRANCHES, JSON.stringify(branches));
+      localStorage.setItem(STORAGE_KEY_DIVISIONS, JSON.stringify(divisions));
+      localStorage.setItem(STORAGE_KEY_SENDERS, JSON.stringify(senders));
+      localStorage.setItem(STORAGE_KEY_HSE_TEAM, JSON.stringify(hseTeam));
+      localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(areas));
+      localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
+
+      renderAllDropdowns();
+      renderQuickAreaChips();
+      updatePendingBadges();
+      renderHseQueue();
+      renderDashboard();
+      showToast('Data demo PT SPIL dipulihkan');
+    }
+
+    // ==========================================
+    // 3. NAVIGASI TAB UTAMA
+    // ==========================================
+    function switchTab(tabName) {
+      if (tabName !== 'sender' && isCameraRunning) {
+        stopCamera();
+      }
+
+      document.querySelectorAll('.tab-page').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`page-${tabName}`).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn-desktop').forEach(btn => {
+        const active = btn.dataset.nav === tabName;
+        btn.className = `nav-btn-desktop px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-1.5 ${
+          active ? 'bg-white text-spilgreen-700 shadow-xs' : 'text-spilgreen-100 hover:text-white'
+        }`;
+      });
+
+      document.querySelectorAll('.nav-btn-mobile').forEach(btn => {
+        const active = btn.dataset.nav === tabName;
+        btn.className = `nav-btn-mobile relative flex flex-col items-center justify-center gap-1 text-xs font-semibold transition ${
+          active ? 'text-spilgreen-700' : 'text-slate-400 hover:text-slate-600'
+        }`;
+      });
+
+      if (tabName === 'hse') {
+        renderHseQueue();
+      } else if (tabName === 'dashboard') {
+        renderDashboard();
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updatePendingBadges() {
+      const count = records.filter(r => r.status === 'pending').length;
+      const dBadge = document.getElementById('badge-pending-desktop');
+      const mBadge = document.getElementById('badge-pending-mobile');
+      if (count > 0) {
+        dBadge.textContent = count;
+        mBadge.textContent = count;
+        dBadge.classList.remove('hidden');
+        mBadge.classList.remove('hidden');
+      } else {
+        dBadge.classList.add('hidden');
+        mBadge.classList.add('hidden');
+      }
+    }
+
+    // ==========================================
+    // 4. MASTER DATA MANDIRI (CABANG, DIVISI, PENGIRIM, TIM HSE, AREA)
+    // ==========================================
+    function renderAllDropdowns() {
+      // Cabang / Kantor
+      const lastBranch = localStorage.getItem(STORAGE_KEY_LAST_BRANCH) || branches[0] || '';
+      const branchOpts = branches.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+
+      document.getElementById('sender-branch-select').innerHTML = branchOpts;
+      document.getElementById('form-branch-select').innerHTML = branchOpts;
+      if (branches.includes(lastBranch)) {
+        document.getElementById('sender-branch-select').value = lastBranch;
+        document.getElementById('form-branch-select').value = lastBranch;
+      }
+
+      document.getElementById('hse-filter-branch').innerHTML = `<option value="">Semua Cabang / Kantor</option>` + branchOpts;
+      document.getElementById('filter-branch').innerHTML = `<option value="">Semua Cabang/Kantor</option>` + branchOpts;
+
+      document.getElementById('branch-manage-list').innerHTML = branches.map(b => `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-spilgreen-50 border border-spilgreen-200 text-xs font-semibold text-spilgreen-800">
+          <span>${escapeHtml(b)}</span>
+          <button type="button" onclick="deleteBranch('${escapeHtml(b)}')" class="text-spilgreen-600 hover:text-spilred-600 font-bold">×</button>
+        </span>
+      `).join('');
+
+      // Divisi
+      const scannerDiv = document.getElementById('scanner-division-select');
+      const prevDiv = scannerDiv.value;
+      scannerDiv.innerHTML = `<option value="">Semua Divisi (${divisions.length})</option>` +
+        divisions.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+      if (divisions.includes(prevDiv)) scannerDiv.value = prevDiv;
+
+      const divOpts = divisions.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+      document.getElementById('new-area-dept').innerHTML = divOpts;
+      document.getElementById('custom-area-dept').innerHTML = divOpts;
+      document.getElementById('division-manage-list').innerHTML = divisions.map(d => `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-spilgreen-50 border border-spilgreen-200 text-xs font-semibold text-spilgreen-800">
+          <span>${escapeHtml(d)}</span>
+          <button type="button" onclick="deleteDivision('${escapeHtml(d)}')" class="text-spilgreen-600 hover:text-spilred-600 font-bold">×</button>
+        </span>
+      `).join('');
+
+      // Pengirim
+      const lastSender = localStorage.getItem(STORAGE_KEY_LAST_SENDER) || senders[0] || '';
+      const senderSelect = document.getElementById('sender-name-select');
+      senderSelect.innerHTML = `<option value="">-- Pilih Nama Pengirim --</option>` +
+        senders.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+      if (senders.includes(lastSender)) {
+        senderSelect.value = lastSender;
+        const senderInput = document.getElementById('sender-name-input');
+        if (senderInput && !senderInput.value) senderInput.value = lastSender;
+      }
+      document.getElementById('sender-manage-list').innerHTML = senders.map(s => `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-spilgreen-50 border border-spilgreen-200 text-xs font-semibold text-spilgreen-800">
+          <span>${escapeHtml(s)}</span>
+          <button type="button" onclick="deleteSenderName('${escapeHtml(s)}')" class="text-spilgreen-600 hover:text-spilred-600 font-bold">×</button>
+        </span>
+      `).join('');
+
+      // Tim HSE Penilai
+      const lastHse = localStorage.getItem(STORAGE_KEY_LAST_HSE) || hseTeam[0] || '';
+      const hseSelect = document.getElementById('hse-evaluator-select');
+      hseSelect.innerHTML = `<option value="">-- Pilih Tim HSE --</option>` +
+        hseTeam.map(h => `<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
+      if (hseTeam.includes(lastHse)) {
+        hseSelect.value = lastHse;
+        const hseInput = document.getElementById('hse-evaluator-input');
+        if (hseInput && !hseInput.value) hseInput.value = lastHse;
+      }
+      document.getElementById('hse-manage-list').innerHTML = hseTeam.map(h => `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-spilgreen-50 border border-spilgreen-200 text-xs font-semibold text-spilgreen-800">
+          <span>${escapeHtml(h)}</span>
+          <button type="button" onclick="deleteHseEvaluator('${escapeHtml(h)}')" class="text-spilgreen-600 hover:text-spilred-600 font-bold">×</button>
+        </span>
+      `).join('');
+
+      // Filter Area Dashboard
+      const filterArea = document.getElementById('filter-area');
+      const prevArea = filterArea.value;
+      filterArea.innerHTML = `<option value="">Semua Area</option>` +
+        areas.map(a => `<option value="${escapeHtml(a.code)}">${escapeHtml(a.code)} — ${escapeHtml(a.name)}</option>`).join('');
+      filterArea.value = prevArea;
+    }
+
+    // Cabang Handlers
+    function handleSenderBranchChange(val) {
+      localStorage.setItem(STORAGE_KEY_LAST_BRANCH, val);
+      document.getElementById('form-branch-select').value = val;
+    }
+    function openAddBranchModal() {
+      renderAllDropdowns();
+      document.getElementById('new-branch-name').value = '';
+      document.getElementById('modal-add-branch').classList.remove('hidden');
+      setTimeout(() => document.getElementById('new-branch-name').focus(), 100);
+    }
+    function closeAddBranchModal() { document.getElementById('modal-add-branch').classList.add('hidden'); }
+    function submitNewBranch(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-branch-name').value.trim();
+      if (!name) return;
+      if (branches.some(b => b.toLowerCase() === name.toLowerCase())) {
+        showToast('Cabang / Kantor sudah terdaftar!'); return;
+      }
+      branches.push(name);
+      localStorage.setItem(STORAGE_KEY_BRANCHES, JSON.stringify(branches));
+      localStorage.setItem(STORAGE_KEY_LAST_BRANCH, name);
+      renderAllDropdowns();
+      document.getElementById('sender-branch-select').value = name;
+      document.getElementById('form-branch-select').value = name;
+      closeAddBranchModal();
+      showToast(`Cabang "${name}" ditambahkan!`);
+    }
+    function deleteBranch(name) {
+      if (branches.length <= 1) { showToast('Minimal harus ada 1 cabang/kantor'); return; }
+      if (!confirm(`Hapus cabang "${name}" dari daftar?`)) return;
+      branches = branches.filter(b => b !== name);
+      localStorage.setItem(STORAGE_KEY_BRANCHES, JSON.stringify(branches));
+      renderAllDropdowns();
+    }
+
+    // Divisi Handlers
+    function openAddDivisionModal() {
+      renderAllDropdowns();
+      document.getElementById('new-division-name').value = '';
+      document.getElementById('modal-add-division').classList.remove('hidden');
+      setTimeout(() => document.getElementById('new-division-name').focus(), 100);
+    }
+    function closeAddDivisionModal() { document.getElementById('modal-add-division').classList.add('hidden'); }
+    function submitNewDivision(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-division-name').value.trim();
+      if (!name) return;
+      if (divisions.some(d => d.toLowerCase() === name.toLowerCase())) { showToast('Divisi sudah ada!'); return; }
+      divisions.push(name);
+      localStorage.setItem(STORAGE_KEY_DIVISIONS, JSON.stringify(divisions));
+      renderAllDropdowns();
+      document.getElementById('scanner-division-select').value = name;
+      document.getElementById('new-area-dept').value = name;
+      document.getElementById('custom-area-dept').value = name;
+      renderQuickAreaChips();
+      closeAddDivisionModal();
+      showToast(`Divisi "${name}" ditambahkan!`);
+    }
+    function deleteDivision(name) {
+      if (divisions.length <= 1) { showToast('Minimal harus ada 1 divisi'); return; }
+      if (!confirm(`Hapus divisi "${name}"?`)) return;
+      divisions = divisions.filter(d => d !== name);
+      localStorage.setItem(STORAGE_KEY_DIVISIONS, JSON.stringify(divisions));
+      renderAllDropdowns();
+      renderQuickAreaChips();
+    }
+
+    // Pengirim Handlers
+    function handleSenderNameChange(val) {
+      if (val) {
+        localStorage.setItem(STORAGE_KEY_LAST_SENDER, val);
+        document.getElementById('sender-name-input').value = val;
+      }
+    }
+    function openAddSenderModal() {
+      renderAllDropdowns();
+      document.getElementById('new-sender-name').value = '';
+      document.getElementById('modal-add-sender').classList.remove('hidden');
+      setTimeout(() => document.getElementById('new-sender-name').focus(), 100);
+    }
+    function closeAddSenderModal() { document.getElementById('modal-add-sender').classList.add('hidden'); }
+    function submitNewSender(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-sender-name').value.trim();
+      if (!name) return;
+      if (senders.some(s => s.toLowerCase() === name.toLowerCase())) { showToast('Nama pengirim sudah terdaftar!'); return; }
+      senders.push(name);
+      localStorage.setItem(STORAGE_KEY_SENDERS, JSON.stringify(senders));
+      localStorage.setItem(STORAGE_KEY_LAST_SENDER, name);
+      renderAllDropdowns();
+      document.getElementById('sender-name-select').value = name;
+      document.getElementById('sender-name-input').value = name;
+      closeAddSenderModal();
+      showToast(`Pengirim "${name}" ditambahkan!`);
+    }
+    function deleteSenderName(name) {
+      if (!confirm(`Hapus "${name}" dari daftar pengirim?`)) return;
+      senders = senders.filter(s => s !== name);
+      localStorage.setItem(STORAGE_KEY_SENDERS, JSON.stringify(senders));
+      renderAllDropdowns();
+    }
+
+    // Tim HSE Penilai Handlers
+    function syncHseEvaluatorSelect(val) {
+      if (val) {
+        document.getElementById('hse-evaluator-input').value = val;
+        localStorage.setItem(STORAGE_KEY_LAST_HSE, val);
+      }
+    }
+    function openAddHseModal() {
+      renderAllDropdowns();
+      document.getElementById('new-hse-name').value = '';
+      document.getElementById('modal-add-hse').classList.remove('hidden');
+      setTimeout(() => document.getElementById('new-hse-name').focus(), 100);
+    }
+    function closeAddHseModal() { document.getElementById('modal-add-hse').classList.add('hidden'); }
+    function submitNewHseEvaluator(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-hse-name').value.trim();
+      if (!name) return;
+      if (hseTeam.some(h => h.toLowerCase() === name.toLowerCase())) { showToast('Nama penilai HSE sudah ada!'); return; }
+      hseTeam.push(name);
+      localStorage.setItem(STORAGE_KEY_HSE_TEAM, JSON.stringify(hseTeam));
+      localStorage.setItem(STORAGE_KEY_LAST_HSE, name);
+      renderAllDropdowns();
+      document.getElementById('hse-evaluator-select').value = name;
+      document.getElementById('hse-evaluator-input').value = name;
+      closeAddHseModal();
+      showToast(`Penilai HSE "${name}" ditambahkan!`);
+    }
+    function deleteHseEvaluator(name) {
+      if (!confirm(`Hapus "${name}" dari daftar Tim HSE?`)) return;
+      hseTeam = hseTeam.filter(h => h !== name);
+      localStorage.setItem(STORAGE_KEY_HSE_TEAM, JSON.stringify(hseTeam));
+      renderAllDropdowns();
+    }
+
+    // Area Handlers
+    function openAddAreaModal() {
+      renderAllDropdowns();
+      document.getElementById('new-area-code').value = '';
+      document.getElementById('new-area-name').value = '';
+      const activeDiv = document.getElementById('scanner-division-select').value;
+      if (activeDiv) document.getElementById('new-area-dept').value = activeDiv;
+      document.getElementById('modal-add-area').classList.remove('hidden');
+      setTimeout(() => document.getElementById('new-area-code').focus(), 100);
+    }
+    function closeAddAreaModal() { document.getElementById('modal-add-area').classList.add('hidden'); }
+    function setAddAreaAction(action) { addAreaSubmitAction = action; }
+    function autoGenerateAreaCode() {
+      let nextNum = areas.length + 1;
+      let candidate = '';
+      do {
+        candidate = `SPIL-AREA-${String(nextNum).padStart(2, '0')}`;
+        nextNum++;
+      } while (areas.some(a => a.code.toUpperCase() === candidate));
+      document.getElementById('new-area-code').value = candidate;
+    }
+    function submitNewArea(e) {
+      e.preventDefault();
+      const codeInput = document.getElementById('new-area-code').value.trim().toUpperCase().replace(/\s+/g, '-');
+      const nameInput = document.getElementById('new-area-name').value.trim();
+      const deptInput = document.getElementById('new-area-dept').value.trim();
+      if (!codeInput || !nameInput || !deptInput) { showToast('Lengkapi semua kolom area'); return; }
+      if (areas.some(a => a.code.toUpperCase() === codeInput)) { showToast(`Kode ${codeInput} sudah terdaftar!`); return; }
+
+      areas.push({ code: codeInput, name: nameInput, dept: deptInput, isCustomUser: true });
+      localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(areas));
+      renderQuickAreaChips();
+      renderAllDropdowns();
+      closeAddAreaModal();
+      showToast(`Area ${codeInput} ditambahkan!`);
+      if (addAreaSubmitAction === 'send') selectAreaForSender(codeInput);
+    }
+    function deleteArea(code) {
+      if (!confirm(`Hapus area ${code} dari daftar?`)) return;
+      areas = areas.filter(a => a.code !== code);
+      localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(areas));
+      renderQuickAreaChips();
+      renderAllDropdowns();
+      openQrGalleryModal();
+    }
+
+    // ==========================================
+    // 5. SCANNER & FORM PENGIRIM (TANPA NILAI)
+    // ==========================================
+    function renderQuickAreaChips() {
+      const container = document.getElementById('quick-area-chips');
+      const selectedDiv = document.getElementById('scanner-division-select').value;
+      const filteredAreas = selectedDiv ? areas.filter(a => a.dept === selectedDiv) : areas;
+
+      document.getElementById('area-count-badge').textContent = filteredAreas.length;
+
+      if (filteredAreas.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full p-5 rounded-xl border border-dashed border-spilgreen-300 bg-spilgreen-50/40 text-center space-y-2">
+            <p class="text-sm font-semibold text-slate-700">Belum ada area di divisi "${escapeHtml(selectedDiv)}"</p>
+            <button type="button" onclick="openAddAreaModal()" class="px-4 py-2 rounded-xl bg-spilgreen-600 text-white text-xs font-bold hover:bg-spilgreen-700 transition">
+              + Tambah Area untuk Divisi Ini
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filteredAreas.map(a => `
+        <button
+          type="button"
+          onclick="selectAreaForSender('${escapeHtml(a.code)}')"
+          class="p-3 rounded-xl border border-spilgreen-200 bg-white hover:bg-spilgreen-50 hover:border-spilgreen-500 transition text-left flex items-center justify-between gap-2 group shadow-2xs"
+        >
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span class="font-extrabold text-xs text-spilgreen-700">${escapeHtml(a.code)}</span>
+              ${a.isCustomUser ? '<span class="px-1.5 py-0.2 rounded bg-spilgreen-100 text-spilgreen-800 text-[10px] font-bold">Mandiri</span>' : ''}
+            </div>
+            <p class="font-bold text-slate-800 text-xs sm:text-sm truncate mt-0.5">${escapeHtml(a.name)}</p>
+            <p class="text-[11px] text-slate-500 truncate">${escapeHtml(a.dept)}</p>
+          </div>
+          <span class="text-xs font-bold text-spilgreen-600 group-hover:translate-x-0.5 shrink-0 transition">Kirim Foto →</span>
+        </button>
+      `).join('');
+    }
+
+    async function toggleCamera() {
+      if (isCameraRunning) await stopCamera();
+      else await startCamera();
+    }
+
+    async function startCamera() {
+      const errorBox = document.getElementById('scanner-error');
+      const placeholder = document.getElementById('scanner-placeholder');
+      const badge = document.getElementById('camera-status-badge');
+      const btnLabel = document.getElementById('btn-camera-label');
+      const btnToggle = document.getElementById('btn-toggle-camera');
+      errorBox.classList.add('hidden');
+
+      if (typeof Html5Qrcode === 'undefined') {
+        showScannerError('Library scanner gagal dimuat. Gunakan pilih area atau input kode manual.');
+        return;
+      }
+
+      try {
+        if (!html5QrCode) html5QrCode = new Html5Qrcode('qr-reader');
+        placeholder.classList.add('hidden');
+        badge.textContent = 'Mengaktifkan...';
+        badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700';
+
+        await html5QrCode.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 },
+          onScanSuccess,
+          () => {}
+        );
+
+        isCameraRunning = true;
+        badge.textContent = 'Scanning Aktif';
+        badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-spilgreen-100 text-spilgreen-800';
+        btnLabel.textContent = 'Hentikan Kamera';
+        btnToggle.classList.replace('bg-spilgreen-600', 'bg-slate-800');
+        btnToggle.classList.replace('hover:bg-spilgreen-700', 'hover:bg-slate-900');
+      } catch (err) {
+        placeholder.classList.remove('hidden');
+        badge.textContent = 'Kamera Gagal';
+        badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700';
+        showScannerError('Tidak dapat mengakses kamera (butuh HTTPS/localhost). Gunakan input kode manual atau pilih area dari daftar.');
+      }
+    }
+
+    async function stopCamera() {
+      const placeholder = document.getElementById('scanner-placeholder');
+      const badge = document.getElementById('camera-status-badge');
+      const btnLabel = document.getElementById('btn-camera-label');
+      const btnToggle = document.getElementById('btn-toggle-camera');
+      try { if (html5QrCode && isCameraRunning) await html5QrCode.stop(); } catch {}
+      isCameraRunning = false;
+      placeholder.classList.remove('hidden');
+      badge.textContent = 'Kamera Siap';
+      badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-white border border-spilgreen-200 text-spilgreen-700';
+      btnLabel.textContent = 'Mulai Scan Kamera';
+      btnToggle.classList.remove('bg-slate-800', 'hover:bg-slate-900');
+      btnToggle.classList.add('bg-spilgreen-600', 'hover:bg-spilgreen-700');
+    }
+
+    async function scanQrFromFile(input) {
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        if (isCameraRunning) await stopCamera();
+        const fileScanner = new Html5Qrcode('qr-reader');
+        const decodedText = await fileScanner.scanFile(file, true);
+        onScanSuccess(decodedText);
+      } catch {
+        showScannerError('QR/Barcode tidak terbaca dari gambar. Gunakan gambar lebih jelas atau input manual.');
+      } finally { input.value = ''; }
+    }
+
+    function showScannerError(msg) {
+      const box = document.getElementById('scanner-error');
+      box.textContent = msg;
+      box.classList.remove('hidden');
+    }
+
+    function onScanSuccess(decodedText) {
+      if (navigator.vibrate) navigator.vibrate(120);
+      stopCamera();
+      const cleaned = decodedText.trim().toUpperCase();
+      showToast(`QR Terbaca: ${cleaned}`);
+      selectAreaForSender(cleaned);
+    }
+
+    function handleManualSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('manual-area-code');
+      const code = input.value.trim().toUpperCase().replace(/\s+/g, '-');
+      if (!code) return;
+      selectAreaForSender(code);
+      input.value = '';
+    }
+
+    function selectAreaForSender(code) {
+      if (isCameraRunning) stopCamera();
+
+      const found = areas.find(a => a.code.toUpperCase() === code.toUpperCase());
+      const customFields = document.getElementById('custom-area-fields');
+
+      if (found) {
+        activeSenderArea = { ...found, isCustom: false };
+        customFields.classList.add('hidden');
+        document.getElementById('custom-area-name').required = false;
+        document.getElementById('custom-area-dept').required = false;
+      } else {
+        activeSenderArea = { code: code.toUpperCase(), name: 'Area Baru (Belum Terdaftar)', dept: 'Pilih Divisi & isi nama area', isCustom: true };
+        customFields.classList.remove('hidden');
+        document.getElementById('custom-area-name').value = '';
+        const selectedDiv = document.getElementById('scanner-division-select').value;
+        if (selectedDiv) document.getElementById('custom-area-dept').value = selectedDiv;
+        document.getElementById('custom-area-name').required = true;
+        document.getElementById('custom-area-dept').required = true;
+      }
+
+      senderPhotos = createEmptyPhotos();
+      selectedPhotoAspect = 'ringkas';
+      document.getElementById('sender-notes').value = '';
+
+      const chosenBranch = document.getElementById('sender-branch-select').value || branches[0];
+      document.getElementById('form-branch-select').value = chosenBranch;
+
+      const chosenSender = document.getElementById('sender-name-select').value || localStorage.getItem(STORAGE_KEY_LAST_SENDER) || '';
+      document.getElementById('sender-name-input').value = chosenSender;
+
+      document.getElementById('sender-form-area-code').textContent = activeSenderArea.code;
+      document.getElementById('sender-form-area-name').textContent = activeSenderArea.name;
+      document.getElementById('sender-form-area-dept').textContent = activeSenderArea.dept;
+
+      document.getElementById('sender-step-select').classList.add('hidden');
+      document.getElementById('sender-submit-form').classList.remove('hidden');
+      document.getElementById('btn-back-to-scanner').classList.remove('hidden');
+
+      renderPhotoUploadUI();
+      switchTab('sender');
+    }
+
+    function resetSenderSelection() {
+      activeSenderArea = null;
+      document.getElementById('sender-submit-form').classList.add('hidden');
+      document.getElementById('sender-step-select').classList.remove('hidden');
+      document.getElementById('btn-back-to-scanner').classList.add('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // --- UI Upload Foto per Aspek 5R (Menu Pengirim) ---
+    function selectPhotoAspect(aspectKey) {
+      selectedPhotoAspect = aspectKey;
+      renderPhotoUploadUI();
+    }
+
+    function renderPhotoUploadUI() {
+      const selector = document.getElementById('photo-aspect-selector');
+      const previewsContainer = document.getElementById('photo-previews-container');
+      const totalBadge = document.getElementById('photo-total-badge');
+      const guideBox = document.getElementById('active-aspect-guide');
+
+      const uploadedAspects = FIVE_R_ASPECTS.filter(a => Boolean(senderPhotos[a.key]));
+      totalBadge.textContent = `${uploadedAspects.length}/5 Foto`;
+
+      selector.innerHTML = FIVE_R_ASPECTS.map(asp => {
+        const isSelected = selectedPhotoAspect === asp.key;
+        const hasPhoto = Boolean(senderPhotos[asp.key]);
+        return `
+          <button
+            type="button"
+            onclick="selectPhotoAspect('${asp.key}')"
+            class="min-h-[48px] px-3 py-2 rounded-xl border-2 text-left transition flex items-center justify-between gap-1.5 ${
+              isSelected
+                ? 'bg-spilgreen-600 text-white border-spilgreen-600 shadow-xs'
+                : hasPhoto
+                  ? 'bg-spilgreen-50 text-spilgreen-800 border-spilgreen-300'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+            }"
+          >
+            <div class="leading-tight">
+              <div class="text-[11px] font-extrabold opacity-90">${asp.code}</div>
+              <div class="text-xs font-bold">${asp.shortTitle}</div>
+            </div>
+            ${hasPhoto ? `<span class="text-xs font-extrabold ${isSelected ? 'text-white' : 'text-spilgreen-600'}">✓</span>` : ''}
+          </button>
+        `;
+      }).join('');
+
+      const activeAsp = FIVE_R_ASPECTS.find(a => a.key === selectedPhotoAspect) || FIVE_R_ASPECTS[0];
+      guideBox.innerHTML = `<span class="font-bold">${activeAsp.code} — ${activeAsp.title}:</span> ${activeAsp.desc}`;
+      document.getElementById('active-photo-aspect-label').textContent = `${activeAsp.code} - ${activeAsp.title}`;
+      document.getElementById('btn-camera-photo-text').textContent = `Kamera (${activeAsp.code} ${activeAsp.shortTitle})`;
+      document.getElementById('btn-gallery-photo-text').textContent = `Galeri (${activeAsp.code} ${activeAsp.shortTitle})`;
+
+      if (uploadedAspects.length === 0) {
+        previewsContainer.innerHTML = `
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
+            Belum ada foto bukti ditambahkan. Pilih salah satu aspek 5R di atas lalu ambil atau pilih foto.
+          </div>
+        `;
+        return;
+      }
+
+      previewsContainer.innerHTML = `
+        <p class="text-xs font-bold text-slate-600 uppercase tracking-wider pt-1">Foto Siap Dikirim ke Tim HSE:</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          ${uploadedAspects.map(asp => `
+            <div class="rounded-xl overflow-hidden border border-spilgreen-200 bg-slate-50 flex flex-col">
+              <div class="px-3 py-2 bg-spilgreen-50 border-b border-spilgreen-100 flex items-center justify-between gap-2">
+                <span class="text-xs font-extrabold text-spilgreen-800">${asp.code} • ${asp.title}</span>
+                <button type="button" onclick="removeSenderPhoto('${asp.key}')" class="px-2 py-0.5 rounded bg-spilred-600 hover:bg-spilred-700 text-white text-[11px] font-bold">
+                  Hapus
+                </button>
+              </div>
+              <img src="${senderPhotos[asp.key]}" alt="Foto ${asp.title}" class="w-full h-44 object-contain bg-slate-100" />
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function handlePhotoUpload(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const targetAspect = selectedPhotoAspect;
+      const targetMeta = FIVE_R_ASPECTS.find(a => a.key === targetAspect);
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+          const maxWidth = 680;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+          senderPhotos[targetAspect] = canvas.toDataURL('image/jpeg', 0.68);
+          renderPhotoUploadUI();
+          showToast(`Foto ${targetMeta.code} (${targetMeta.shortTitle}) ditambahkan!`);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+      input.value = '';
+    }
+
+    function removeSenderPhoto(aspectKey) {
+      senderPhotos[aspectKey] = '';
+      renderPhotoUploadUI();
+    }
+
+    function submitSenderReport(e) {
+      e.preventDefault();
+      if (!activeSenderArea) return;
+
+      const uploadedCount = Object.values(senderPhotos).filter(Boolean).length;
+      if (uploadedCount === 0) {
+        showToast('Unggah minimal 1 foto bukti 5R untuk dikirim ke Tim HSE!');
+        return;
+      }
+
+      const branch = document.getElementById('form-branch-select').value;
+      const senderName = document.getElementById('sender-name-input').value.trim();
+      if (!branch || !senderName) {
+        showToast('Lengkapi Cabang/Kantor dan Nama Pengirim');
+        return;
+      }
+
+      // Simpan pengirim & cabang terakhir
+      if (!senders.some(s => s.toLowerCase() === senderName.toLowerCase())) {
+        senders.push(senderName);
+        localStorage.setItem(STORAGE_KEY_SENDERS, JSON.stringify(senders));
+      }
+      localStorage.setItem(STORAGE_KEY_LAST_SENDER, senderName);
+      localStorage.setItem(STORAGE_KEY_LAST_BRANCH, branch);
+
+      // Simpan area baru jika custom
+      let finalAreaName = activeSenderArea.name;
+      let finalAreaDept = activeSenderArea.dept;
+      if (activeSenderArea.isCustom) {
+        finalAreaName = document.getElementById('custom-area-name').value.trim();
+        finalAreaDept = document.getElementById('custom-area-dept').value.trim();
+        if (!finalAreaName || !finalAreaDept) { showToast('Lengkapi Nama Area & Divisi baru'); return; }
+        areas.push({ code: activeSenderArea.code, name: finalAreaName, dept: finalAreaDept, isCustomUser: true });
+        localStorage.setItem(STORAGE_KEY_AREAS, JSON.stringify(areas));
+      }
+
+      const newReport = {
+        id: 'SPIL-' + Date.now().toString().slice(-6),
+        status: 'pending',
+        timestamp: new Date().toISOString(),
+        branch,
+        areaCode: activeSenderArea.code,
+        areaName: finalAreaName,
+        dept: finalAreaDept,
+        senderName,
+        senderNotes: document.getElementById('sender-notes').value.trim(),
+        photos: { ...senderPhotos },
+        scores: null,
+        totalScore: null,
+        avgScore: null,
+        hseEvaluator: '',
+        hseNotes: '',
+        reviewedAt: null
+      };
+
+      records.unshift(newReport);
+      try {
+        localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
+      } catch {
+        alert('Penyimpanan browser penuh. Hapus beberapa riwayat lama terlebih dahulu.');
+        records.shift();
+        return;
+      }
+
+      renderAllDropdowns();
+      renderQuickAreaChips();
+      updatePendingBadges();
+      resetSenderSelection();
+      showToast('Foto 5R berhasil dikirim ke antrean Tim HSE!');
+      switchTab('hse');
+      setHseStatusFilter('pending');
+    }
+
+    // ==========================================
+    // 6. MENU 2: PENILAI TIM HSE (SKALA 1-5 DARI FOTO)
+    // ==========================================
+    function setHseStatusFilter(status) {
+      hseStatusFilter = status;
+      renderHseQueue();
+    }
+
+    function renderHseQueue() {
+      const pendingCount = records.filter(r => r.status === 'pending').length;
+      const reviewedCount = records.filter(r => r.status === 'reviewed').length;
+      document.getElementById('hse-count-pending').textContent = pendingCount;
+      document.getElementById('hse-count-reviewed').textContent = reviewedCount;
+
+      const tabPending = document.getElementById('hse-tab-pending');
+      const tabReviewed = document.getElementById('hse-tab-reviewed');
+      tabPending.className = `px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+        hseStatusFilter === 'pending' ? 'bg-spilgreen-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+      }`;
+      tabReviewed.className = `px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition ${
+        hseStatusFilter === 'reviewed' ? 'bg-spilgreen-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+      }`;
+
+      const branchFilter = document.getElementById('hse-filter-branch').value;
+      const list = records.filter(r => {
+        if (r.status !== hseStatusFilter) return false;
+        if (branchFilter && r.branch !== branchFilter) return false;
+        return true;
+      });
+
+      const container = document.getElementById('hse-queue-list');
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-spilgreen-200 p-8 text-center space-y-2">
+            <p class="font-bold text-slate-700 text-sm sm:text-base">
+              ${hseStatusFilter === 'pending' ? 'Semua kiriman cabang/kantor sudah dinilai Tim HSE!' : 'Belum ada riwayat penilaian HSE untuk filter ini.'}
+            </p>
+            <p class="text-xs text-slate-500">Kiriman foto baru dari Menu Pengirim akan muncul otomatis di sini.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list.map(item => {
+        const photosList = getAuditPhotosList(item);
+        const isPending = item.status === 'pending';
+        const grade = !isPending && item.avgScore ? getGradeInfo(item.avgScore) : null;
+
+        return `
+          <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 sm:p-5 shadow-sm hover:border-spilgreen-400 transition space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div class="space-y-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="px-2.5 py-0.5 rounded-md bg-spilgreen-600 text-white text-[11px] font-extrabold">${escapeHtml(item.branch)}</span>
+                  <span class="px-2 py-0.5 rounded bg-spilgreen-50 border border-spilgreen-200 text-spilgreen-800 text-[11px] font-bold">${escapeHtml(item.areaCode)}</span>
+                  <span class="text-xs text-slate-400">${formatDateTime(item.timestamp)}</span>
+                </div>
+                <h3 class="font-bold text-slate-900 text-base truncate">${escapeHtml(item.areaName)}</h3>
+                <p class="text-xs text-slate-500">
+                  Divisi: ${escapeHtml(item.dept)} • Pengirim: <span class="font-semibold text-slate-700">${escapeHtml(item.senderName)}</span>
+                </p>
+              </div>
+
+              <div class="flex items-center sm:flex-col sm:items-end justify-between gap-2 shrink-0">
+                ${isPending
+                  ? `<span class="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-xs font-extrabold">⏳ Menunggu Nilai HSE</span>`
+                  : `<span class="px-2.5 py-1 rounded-lg text-xs font-extrabold ${grade.badgeLight}">✓ Skor ${item.avgScore.toFixed(1)} / 5.0</span>`
+                }
+                <span class="text-xs font-semibold text-spilgreen-700">📷 ${photosList.length} Foto (${photosList.map(p => p.code).join(', ') || '-'})</span>
+              </div>
+            </div>
+
+            ${item.senderNotes ? `
+              <p class="text-xs text-slate-600 bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+                <span class="font-bold text-slate-700">Info Pengirim:</span> ${escapeHtml(item.senderNotes)}
+              </p>
+            ` : ''}
+
+            <!-- Thumbnail kecil foto yang dikirim -->
+            ${photosList.length > 0 ? `
+              <div class="flex items-center gap-2 overflow-x-auto pb-1">
+                ${photosList.map(p => `
+                  <div class="shrink-0 w-20 rounded-lg border border-spilgreen-200 overflow-hidden bg-slate-100">
+                    <div class="bg-spilgreen-50 text-spilgreen-800 text-[10px] font-extrabold text-center py-0.5">${escapeHtml(p.code)}</div>
+                    <img src="${p.src}" alt="${escapeHtml(p.code)}" class="w-20 h-14 object-cover" />
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            <div class="pt-1 flex justify-end">
+              <button type="button" onclick="openHseGradingForm('${escapeHtml(item.id)}')" class="w-full sm:w-auto min-h-[46px] px-5 py-2.5 rounded-xl ${
+                isPending ? 'bg-spilgreen-600 hover:bg-spilgreen-700 text-white' : 'bg-spilgreen-50 hover:bg-spilgreen-100 text-spilgreen-800 border border-spilgreen-200'
+              } font-bold text-sm transition">
+                ${isPending ? 'Nilai Foto Ini Sekarang (Skala 1–5) →' : 'Lihat / Edit Penilaian HSE'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openHseGradingForm(recordId) {
+      const item = records.find(r => r.id === recordId);
+      if (!item) return;
+
+      activeGradingId = recordId;
+      hseScores = item.scores
+        ? { ...item.scores }
+        : { ringkas: 0, rapi: 0, resik: 0, rawat: 0, rajin: 0 };
+
+      document.getElementById('hse-grade-branch-badge').textContent = item.branch;
+      document.getElementById('hse-grade-area-code').textContent = item.areaCode;
+      document.getElementById('hse-grade-area-name').textContent = item.areaName;
+      document.getElementById('hse-grade-meta').textContent = `${item.dept} • Pengirim: ${item.senderName} • ${formatDateTime(item.timestamp)}`;
+
+      const noteBox = document.getElementById('hse-sender-note-box');
+      if (item.senderNotes) {
+        document.getElementById('hse-sender-note-text').textContent = item.senderNotes;
+        noteBox.classList.remove('hidden');
+      } else {
+        noteBox.classList.add('hidden');
+      }
+
+      const defaultHse = item.hseEvaluator || localStorage.getItem(STORAGE_KEY_LAST_HSE) || hseTeam[0] || '';
+      document.getElementById('hse-evaluator-input').value = defaultHse;
+      document.getElementById('hse-evaluator-select').value = hseTeam.includes(defaultHse) ? defaultHse : '';
+      document.getElementById('hse-notes-input').value = item.hseNotes || '';
+
+      document.getElementById('hse-queue-view').classList.add('hidden');
+      document.getElementById('hse-grading-form').classList.remove('hidden');
+      document.getElementById('btn-back-to-hse-queue').classList.remove('hidden');
+
+      renderHseGradingAspects();
+      updateHseLiveScore();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function closeHseGradingForm() {
+      activeGradingId = null;
+      document.getElementById('hse-grading-form').classList.add('hidden');
+      document.getElementById('hse-queue-view').classList.remove('hidden');
+      document.getElementById('btn-back-to-hse-queue').classList.add('hidden');
+      renderHseQueue();
+    }
+
+    function renderHseGradingAspects() {
+      const item = records.find(r => r.id === activeGradingId);
+      if (!item) return;
+
+      const container = document.getElementById('hse-grading-aspects');
+      container.innerHTML = FIVE_R_ASPECTS.map(aspect => {
+        const photoSrc = item.photos ? item.photos[aspect.key] : '';
+        const selected = hseScores[aspect.key] || 0;
+        const selectedLabel = selected ? SCORE_LABELS[selected].text : 'Belum dinilai HSE';
+
+        return `
+          <div class="bg-white rounded-2xl border border-spilgreen-200 p-4 sm:p-5 shadow-sm space-y-3.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="px-2 py-0.5 rounded-md text-xs font-extrabold border ${aspect.color}">${aspect.code}</span>
+                  <h3 class="font-bold text-slate-900 text-base">${aspect.title}</h3>
+                </div>
+                <p class="text-xs text-slate-500 leading-relaxed">${aspect.desc}</p>
+              </div>
+              <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 ${
+                photoSrc ? 'bg-spilgreen-100 text-spilgreen-800' : 'bg-slate-100 text-slate-500'
+              }">
+                ${photoSrc ? '📷 Ada Foto' : 'Tanpa Foto'}
+              </span>
+            </div>
+
+            <!-- GAMBAR KIRIMAN DARI CABANG / KANTOR UNTUK DINILAI -->
+            ${photoSrc ? `
+              <div class="rounded-xl overflow-hidden border border-spilgreen-200 bg-slate-100 relative group">
+                <img
+                  src="${photoSrc}"
+                  alt="Foto ${aspect.title}"
+                  onclick="openLightbox('${escapeHtml(aspect.code + ' • ' + aspect.title)}', this.src)"
+                  class="w-full max-h-64 object-contain mx-auto cursor-zoom-in"
+                />
+                <button
+                  type="button"
+                  onclick="openLightbox('${escapeHtml(aspect.code + ' • ' + aspect.title)}', '${photoSrc}')"
+                  class="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-slate-900/75 hover:bg-slate-900 text-white text-[11px] font-bold"
+                >
+                  🔍 Perbesar Foto
+                </button>
+              </div>
+            ` : `
+              <div class="p-3.5 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                Pengirim tidak melampirkan foto khusus untuk aspek ${aspect.code} (${aspect.shortTitle}). Tim HSE tetap dapat memberikan nilai.
+              </div>
+            `}
+
+            <!-- SKALA PENILAIAN 1-5 OLEH TIM HSE -->
+            <div class="space-y-1.5 pt-1">
+              <p class="text-xs font-bold text-spilgreen-800 uppercase tracking-wider">Penilaian Tim HSE (Skala 1–5):</p>
+              <div class="grid grid-cols-5 gap-2">
+                ${[1, 2, 3, 4, 5].map(num => {
+                  const isActive = selected === num;
+                  const activeCls = isActive
+                    ? SCORE_LABELS[num].cls + ' shadow-sm scale-[1.02]'
+                    : 'bg-spilgreen-50/40 hover:bg-spilgreen-50 text-slate-700 border-spilgreen-200';
+                  return `
+                    <button
+                      type="button"
+                      onclick="setHseScore('${aspect.key}', ${num})"
+                      class="min-h-[54px] rounded-xl border-2 font-extrabold text-lg transition flex items-center justify-center ${activeCls}"
+                    >
+                      ${num}
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+              <div class="flex items-center justify-between text-xs pt-0.5">
+                <span class="text-slate-400">1: Sangat Kurang • 5: Sangat Baik</span>
+                <span class="font-bold ${selected ? 'text-slate-800' : 'text-slate-400'}">${selectedLabel}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function setHseScore(aspectKey, score) {
+      hseScores[aspectKey] = score;
+      renderHseGradingAspects();
+      updateHseLiveScore();
+    }
+
+    function updateHseLiveScore() {
+      const vals = Object.values(hseScores);
+      const filled = vals.filter(v => v > 0).length;
+      const total = vals.reduce((a, b) => a + b, 0);
+      const avg = filled > 0 ? (total / 5).toFixed(1) : '0.0';
+
+      document.getElementById('live-avg-score').textContent = avg;
+      document.getElementById('live-total-score').textContent = total;
+
+      const badge = document.getElementById('live-grade-badge');
+      if (filled < 5) {
+        badge.textContent = `${filled}/5 Aspek Dinilai`;
+        badge.className = 'px-3.5 py-1.5 rounded-xl bg-spilgreen-800 text-spilgreen-100 text-xs sm:text-sm font-bold';
+      } else {
+        const grade = getGradeInfo(Number(avg));
+        badge.textContent = grade.label;
+        badge.className = `px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold ${grade.badgeDark}`;
+      }
+    }
+
+    function appendHseNoteTag(text) {
+      const ta = document.getElementById('hse-notes-input');
+      ta.value = ta.value.trim() ? `${ta.value.trim()} ${text}` : text;
+    }
+
+    function submitHseGrading(e) {
+      e.preventDefault();
+      const idx = records.findIndex(r => r.id === activeGradingId);
+      if (idx === -1) return;
+
+      const missingAspect = FIVE_R_ASPECTS.find(a => !hseScores[a.key]);
+      if (missingAspect) {
+        showToast(`Beri nilai 1–5 untuk aspek ${missingAspect.title}`);
+        return;
+      }
+
+      const evaluator = document.getElementById('hse-evaluator-input').value.trim();
+      if (!evaluator) {
+        showToast('Mohon isi nama penilai Tim HSE');
+        return;
+      }
+
+      if (!hseTeam.some(h => h.toLowerCase() === evaluator.toLowerCase())) {
+        hseTeam.push(evaluator);
+        localStorage.setItem(STORAGE_KEY_HSE_TEAM, JSON.stringify(hseTeam));
+      }
+      localStorage.setItem(STORAGE_KEY_LAST_HSE, evaluator);
+      renderAllDropdowns();
+
+      const totalScore = Object.values(hseScores).reduce((a, b) => a + b, 0);
+      const avgScore = Number((totalScore / 5).toFixed(1));
+
+      records[idx] = {
+        ...records[idx],
+        status: 'reviewed',
+        scores: { ...hseScores },
+        totalScore,
+        avgScore,
+        hseEvaluator: evaluator,
+        hseNotes: document.getElementById('hse-notes-input').value.trim(),
+        reviewedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
+      updatePendingBadges();
+      closeHseGradingForm();
+      renderDashboard();
+      showToast(`Penilaian HSE tersimpan (Skor ${avgScore}/5.0)!`);
+    }
+
+    // ==========================================
+    // 7. DASHBOARD REKAPITULASI & EXPORT CSV
+    // ==========================================
+    function getGradeInfo(avg) {
+      if (avg >= 4.5) return { label: 'Sangat Baik (A)', badgeLight: 'bg-spilgreen-100 text-spilgreen-800', badgeDark: 'bg-spilgreen-500 text-white' };
+      if (avg >= 3.8) return { label: 'Baik (B)', badgeLight: 'bg-teal-100 text-teal-800', badgeDark: 'bg-teal-600 text-white' };
+      if (avg >= 3.0) return { label: 'Cukup (C)', badgeLight: 'bg-amber-100 text-amber-800', badgeDark: 'bg-amber-500 text-white' };
+      return { label: 'Perlu Perbaikan (D)', badgeLight: 'bg-rose-100 text-rose-800', badgeDark: 'bg-spilred-600 text-white' };
+    }
+
+    function getAuditPhotosList(item) {
+      const result = [];
+      if (item.photos && typeof item.photos === 'object') {
+        FIVE_R_ASPECTS.forEach(asp => {
+          if (item.photos[asp.key]) {
+            result.push({ code: asp.code, title: asp.title, shortTitle: asp.shortTitle, src: item.photos[asp.key] });
+          }
+        });
+      }
+      return result;
+    }
+
+    function getFilteredRecords() {
+      const search = document.getElementById('filter-search').value.trim().toLowerCase();
+      const branchFilter = document.getElementById('filter-branch').value;
+      const areaFilter = document.getElementById('filter-area').value;
+      const statusFilter = document.getElementById('filter-status').value;
+      const gradeFilter = document.getElementById('filter-grade').value;
+
+      return records.filter(item => {
+        if (branchFilter && item.branch !== branchFilter) return false;
+        if (areaFilter && item.areaCode !== areaFilter) return false;
+        if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+
+        if (search) {
+          const hay = `${item.branch} ${item.senderName} ${item.hseEvaluator} ${item.areaCode} ${item.areaName} ${item.dept} ${item.senderNotes} ${item.hseNotes}`.toLowerCase();
+          if (!hay.includes(search)) return false;
+        }
+
+        if (gradeFilter !== 'all') {
+          if (item.status !== 'reviewed' || item.avgScore === null) return false;
+          if (gradeFilter === 'good' && item.avgScore < 4.0) return false;
+          if (gradeFilter === 'fair' && (item.avgScore < 3.0 || item.avgScore >= 4.0)) return false;
+          if (gradeFilter === 'poor' && item.avgScore >= 3.0) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderDashboard() {
+      renderKPIs();
+      renderAreaRecap();
+      renderHistoryList();
+    }
+
+    function renderKPIs() {
+      const total = records.length;
+      const pending = records.filter(r => r.status === 'pending').length;
+      const reviewed = records.filter(r => r.status === 'reviewed' && r.avgScore !== null);
+
+      document.getElementById('kpi-total-audits').textContent = total;
+      document.getElementById('kpi-pending-info').textContent = `${pending} menunggu penilaian HSE`;
+
+      if (reviewed.length === 0) {
+        document.getElementById('kpi-avg-score').textContent = '0.0';
+        document.getElementById('kpi-avg-percent').textContent = 'Skala 5.0 (0%)';
+        document.getElementById('kpi-best-area').textContent = '-';
+        document.getElementById('kpi-best-score').textContent = '-';
+        document.getElementById('kpi-low-count').textContent = '0';
+        return;
+      }
+
+      const avgAll = reviewed.reduce((sum, r) => sum + r.avgScore, 0) / reviewed.length;
+      document.getElementById('kpi-avg-score').textContent = avgAll.toFixed(1);
+      document.getElementById('kpi-avg-percent').textContent = `Skala 5.0 (${Math.round((avgAll / 5) * 100)}%)`;
+
+      const areaStats = computeAreaStats();
+      const sorted = [...areaStats].sort((a, b) => b.avg - a.avg);
+      if (sorted.length > 0) {
+        document.getElementById('kpi-best-area').textContent = `${sorted[0].areaName}`;
+        document.getElementById('kpi-best-score').textContent = `${sorted[0].branch} • ${sorted[0].avg.toFixed(1)}/5.0`;
+      }
+      document.getElementById('kpi-low-count').textContent = areaStats.filter(a => a.avg < 3.5).length;
+    }
+
+    function computeAreaStats() {
+      const map = {};
+      records.filter(r => r.status === 'reviewed' && r.scores).forEach(item => {
+        const key = `${item.branch}__${item.areaCode}`;
+        if (!map[key]) {
+          map[key] = {
+            branch: item.branch,
+            areaCode: item.areaCode,
+            areaName: item.areaName,
+            dept: item.dept,
+            count: 0,
+            sumAvg: 0,
+            rSums: { ringkas: 0, rapi: 0, resik: 0, rawat: 0, rajin: 0 }
+          };
+        }
+        const entry = map[key];
+        entry.count++;
+        entry.sumAvg += item.avgScore;
+        FIVE_R_ASPECTS.forEach(asp => { entry.rSums[asp.key] += (item.scores[asp.key] || 0); });
+      });
+
+      return Object.values(map).map(e => ({
+        ...e,
+        avg: e.sumAvg / e.count,
+        rAvgs: {
+          ringkas: (e.rSums.ringkas / e.count).toFixed(1),
+          rapi: (e.rSums.rapi / e.count).toFixed(1),
+          resik: (e.rSums.resik / e.count).toFixed(1),
+          rawat: (e.rSums.rawat / e.count).toFixed(1),
+          rajin: (e.rSums.rajin / e.count).toFixed(1)
+        }
+      })).sort((a, b) => b.avg - a.avg);
+    }
+
+    function renderAreaRecap() {
+      const container = document.getElementById('area-summary-list');
+      const stats = computeAreaStats();
+      if (stats.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-sm text-slate-400">Belum ada laporan yang selesai dinilai oleh Tim HSE.</div>`;
+        return;
+      }
+
+      container.innerHTML = stats.map(s => {
+        const pct = Math.round((s.avg / 5) * 100);
+        const barColor = s.avg >= 4.0 ? 'bg-spilgreen-600' : s.avg >= 3.0 ? 'bg-amber-500' : 'bg-spilred-600';
+        const scoreColor = s.avg >= 4.0 ? 'text-spilgreen-800 bg-spilgreen-100' : s.avg >= 3.0 ? 'text-amber-700 bg-amber-50' : 'text-spilred-700 bg-rose-50';
+
+        return `
+          <div class="p-4 sm:p-5 hover:bg-spilgreen-50/30 transition space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="px-2 py-0.5 rounded bg-spilgreen-600 text-white font-bold text-[11px]">${escapeHtml(s.branch)}</span>
+                  <span class="px-2 py-0.5 rounded bg-spilgreen-50 border border-spilgreen-200 text-spilgreen-800 font-bold text-xs">${escapeHtml(s.areaCode)}</span>
+                  <span class="text-xs text-slate-400">${s.count}x Dinilai HSE</span>
+                </div>
+                <h3 class="font-bold text-slate-900 text-sm sm:text-base mt-1">${escapeHtml(s.areaName)}</h3>
+                <p class="text-xs text-slate-500">${escapeHtml(s.dept)}</p>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="inline-block px-3 py-1 rounded-xl font-extrabold text-base ${scoreColor}">${s.avg.toFixed(1)}</span>
+                <p class="text-[11px] text-slate-400 mt-0.5">${pct}%</p>
+              </div>
+            </div>
+            <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+              <div class="h-full ${barColor} rounded-full transition-all" style="width: ${pct}%"></div>
+            </div>
+            <div class="grid grid-cols-5 gap-1.5 text-center">
+              ${FIVE_R_ASPECTS.map(asp => `
+                <div class="bg-spilgreen-50/50 rounded-lg py-1.5 px-1 border border-spilgreen-100">
+                  <div class="text-[10px] font-bold text-spilgreen-700">${asp.code}</div>
+                  <div class="text-xs font-extrabold text-slate-800">${s.rAvgs[asp.key]}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderHistoryList() {
+      const list = document.getElementById('audit-history-list');
+      const filtered = getFilteredRecords();
+      document.getElementById('history-count-label').textContent = `Menampilkan ${filtered.length} dari ${records.length} kiriman`;
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="p-8 text-center text-sm text-slate-400">Tidak ada data yang sesuai filter.</div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.map(item => {
+        const isPending = item.status === 'pending';
+        const grade = !isPending && item.avgScore !== null ? getGradeInfo(item.avgScore) : null;
+        const photosList = getAuditPhotosList(item);
+
+        return `
+          <div onclick="openDetailModal('${escapeHtml(item.id)}')" class="p-4 sm:p-5 hover:bg-spilgreen-50/40 active:bg-spilgreen-50 cursor-pointer transition space-y-2.5">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[11px] font-bold text-white bg-spilgreen-600 px-2 py-0.5 rounded">${escapeHtml(item.branch)}</span>
+                  <span class="text-xs font-bold text-spilgreen-800 bg-spilgreen-100 px-2 py-0.5 rounded">${escapeHtml(item.areaCode)}</span>
+                  <span class="text-xs text-slate-400">${formatDateTime(item.timestamp)}</span>
+                </div>
+                <h4 class="font-bold text-slate-900 text-sm sm:text-base mt-1 truncate">${escapeHtml(item.areaName)}</h4>
+                <p class="text-xs text-slate-500">
+                  Pengirim: <span class="font-semibold text-slate-700">${escapeHtml(item.senderName)}</span>
+                  ${item.hseEvaluator ? ` • Penilai HSE: <span class="font-semibold text-spilgreen-700">${escapeHtml(item.hseEvaluator)}</span>` : ''}
+                </p>
+              </div>
+              <div class="text-right shrink-0 space-y-1">
+                ${isPending
+                  ? `<span class="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-800">⏳ Menunggu HSE</span>`
+                  : `<span class="inline-block px-2.5 py-1 rounded-lg text-xs font-bold ${grade.badgeLight}">${item.avgScore.toFixed(1)} • ${grade.label.split(' ')[0]}</span>`
+                }
+                ${photosList.length > 0 ? `<div class="text-[11px] font-semibold text-spilgreen-700">📷 ${photosList.length} Foto (${photosList.map(p => p.code).join(', ')})</div>` : ''}
+              </div>
+            </div>
+            ${item.hseNotes ? `<p class="text-xs text-slate-600 line-clamp-2 bg-spilgreen-50/50 rounded-lg p-2.5 border border-spilgreen-100"><span class="font-bold text-spilgreen-800">Catatan HSE:</span> ${escapeHtml(item.hseNotes)}</p>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openDetailModal(recordId) {
+      const item = records.find(r => r.id === recordId);
+      if (!item) return;
+
+      const isPending = item.status === 'pending';
+      const grade = !isPending && item.avgScore !== null ? getGradeInfo(item.avgScore) : null;
+      const photosList = getAuditPhotosList(item);
+      const body = document.getElementById('modal-detail-body');
+
+      body.innerHTML = `
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-xs font-bold px-2 py-0.5 rounded bg-spilgreen-600 text-white">${escapeHtml(item.branch)}</span>
+              <span class="text-xs font-bold px-2 py-0.5 rounded bg-spilgreen-100 text-spilgreen-800">${escapeHtml(item.areaCode)}</span>
+            </div>
+            <h4 class="text-lg font-extrabold text-slate-900 mt-1">${escapeHtml(item.areaName)}</h4>
+            <p class="text-xs text-slate-500">${escapeHtml(item.dept)} • Dikirim ${formatDateTime(item.timestamp)}</p>
+          </div>
+          ${isPending
+            ? `<span class="px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 bg-amber-100 text-amber-800">Menunggu HSE</span>`
+            : `<span class="px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 ${grade.badgeLight}">${item.avgScore.toFixed(1)} / 5.0</span>`
+          }
+        </div>
+
+        <div class="bg-spilgreen-50 rounded-xl p-3 border border-spilgreen-200 text-xs sm:text-sm space-y-1">
+          <div><span class="text-slate-600">Pengirim (Cabang/Kantor):</span> <span class="font-bold text-slate-900">${escapeHtml(item.senderName)}</span></div>
+          <div><span class="text-slate-600">Penilai (Tim HSE):</span> <span class="font-bold text-spilgreen-800">${item.hseEvaluator ? escapeHtml(item.hseEvaluator) : 'Belum dinilai'}</span></div>
+        </div>
+
+        ${!isPending && item.scores ? `
+          <div class="space-y-2">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nilai Tim HSE (Skala 1–5)</p>
+            <div class="grid grid-cols-5 gap-2 text-center">
+              ${FIVE_R_ASPECTS.map(asp => `
+                <div class="p-2 rounded-xl border border-spilgreen-200 bg-white">
+                  <div class="text-[11px] font-bold text-spilgreen-700">${asp.code}</div>
+                  <div class="text-lg font-extrabold text-slate-900">${item.scores[asp.key]}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${item.senderNotes ? `
+          <div class="space-y-1">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Keterangan Pengirim</p>
+            <p class="text-sm text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100">${escapeHtml(item.senderNotes)}</p>
+          </div>
+        ` : ''}
+
+        ${!isPending ? `
+          <div class="space-y-1">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Catatan Evaluasi Tim HSE</p>
+            <p class="text-sm text-slate-700 bg-spilgreen-50/50 p-3 rounded-xl border border-spilgreen-100">
+              ${item.hseNotes ? escapeHtml(item.hseNotes) : '<span class="italic text-slate-400">Tidak ada catatan tambahan dari Tim HSE.</span>'}
+            </p>
+          </div>
+        ` : ''}
+
+        ${photosList.length > 0 ? `
+          <div class="space-y-2">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Foto Bukti Kiriman (${photosList.length})</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              ${photosList.map(p => `
+                <div class="rounded-xl border border-spilgreen-200 overflow-hidden bg-slate-50">
+                  <div class="px-2.5 py-1.5 bg-spilgreen-50 border-b border-spilgreen-100 text-xs font-extrabold text-spilgreen-800">
+                    ${escapeHtml(p.code)} • ${escapeHtml(p.title)}
+                  </div>
+                  <img src="${p.src}" onclick="openLightbox('${escapeHtml(p.code + ' • ' + p.title)}', this.src)" alt="Bukti" class="w-full h-44 object-contain bg-slate-100 cursor-zoom-in" />
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="pt-2 flex items-center justify-between gap-2">
+          <button onclick="closeDetailModal(); switchTab('hse'); openHseGradingForm('${escapeHtml(item.id)}')" class="px-4 py-2.5 rounded-xl bg-spilgreen-600 hover:bg-spilgreen-700 text-white text-xs font-bold transition">
+            ${isPending ? 'Nilai Sekarang (Tim HSE)' : 'Edit Nilai HSE'}
+          </button>
+          <button onclick="deleteRecord('${escapeHtml(item.id)}')" class="px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition">
+            Hapus Laporan
+          </button>
+        </div>
+      `;
+
+      document.getElementById('modal-detail').classList.remove('hidden');
+    }
+
+    function closeDetailModal() { document.getElementById('modal-detail').classList.add('hidden'); }
+
+    function deleteRecord(recordId) {
+      if (!confirm('Yakin ingin menghapus laporan ini?')) return;
+      records = records.filter(r => r.id !== recordId);
+      localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
+      closeDetailModal();
+      updatePendingBadges();
+      renderHseQueue();
+      renderDashboard();
+      showToast('Laporan dihapus');
+    }
+
+    function exportToCSV() {
+      const data = getFilteredRecords();
+      if (data.length === 0) { showToast('Tidak ada data untuk diexport'); return; }
+
+      const headers = [
+        'ID Laporan', 'Status', 'Tanggal Kirim', 'Cabang / Kantor', 'Kode Area', 'Nama Area', 'Divisi',
+        'Nama Pengirim', 'Nama Penilai HSE', 'R1 Ringkas', 'R2 Rapi', 'R3 Resik', 'R4 Rawat', 'R5 Rajin',
+        'Total Skor', 'Rata-rata', 'Predikat', 'Keterangan Pengirim', 'Catatan Tim HSE', 'Foto Bukti 5R'
+      ];
+      const csvRows = [headers.join(',')];
+
+      data.forEach(item => {
+        const isRev = item.status === 'reviewed' && item.scores;
+        const grade = isRev ? getGradeInfo(item.avgScore).label : 'Menunggu Penilaian HSE';
+        const photosList = getAuditPhotosList(item);
+        const photoSummary = photosList.length > 0 ? photosList.map(p => `${p.code} ${p.shortTitle}`).join('; ') : 'Tidak Ada';
+
+        const row = [
+          item.id,
+          isRev ? 'Sudah Dinilai HSE' : 'Menunggu Tim HSE',
+          formatDateTime(item.timestamp),
+          item.branch,
+          item.areaCode,
+          item.areaName,
+          item.dept,
+          item.senderName,
+          item.hseEvaluator || '-',
+          isRev ? item.scores.ringkas : '-',
+          isRev ? item.scores.rapi : '-',
+          isRev ? item.scores.resik : '-',
+          isRev ? item.scores.rawat : '-',
+          isRev ? item.scores.rajin : '-',
+          isRev ? item.totalScore : '-',
+          isRev ? item.avgScore : '-',
+          grade,
+          item.senderNotes || '-',
+          item.hseNotes || '-',
+          photoSummary
+        ].map(val => `"${String(val).replace(/"/g, '""')}"`);
+        csvRows.push(row.join(','));
+      });
+
+      const csvContent = '\uFEFF' + csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `rekap-5r-pt-spil-${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast(`Berhasil export ${data.length} data ke CSV`);
+    }
+
+    // ==========================================
+    // 8. MODAL LIGHTBOX & QR AREA
+    // ==========================================
+    function openLightbox(title, src) {
+      document.getElementById('lightbox-title').textContent = title;
+      document.getElementById('lightbox-img').src = src;
+      document.getElementById('modal-lightbox').classList.remove('hidden');
+    }
+    function closeLightbox() {
+      document.getElementById('modal-lightbox').classList.add('hidden');
+    }
+
+    function openQrGalleryModal() {
+      const container = document.getElementById('qr-print-area');
+      container.innerHTML = '';
+
+      areas.forEach((area, idx) => {
+        const card = document.createElement('div');
+        card.className = 'border border-spilgreen-200 rounded-2xl p-4 flex flex-col items-center text-center bg-white space-y-2.5';
+        card.innerHTML = `
+          <div class="w-full flex items-center justify-between gap-2">
+            <span class="px-2 py-0.5 rounded bg-spilgreen-600 text-white font-bold text-[11px]">5R PT SPIL</span>
+            <span class="px-2 py-0.5 rounded bg-spilgreen-50 border border-spilgreen-200 text-spilgreen-800 font-bold text-[11px]">${escapeHtml(area.code)}</span>
+          </div>
+          <div id="qr-canvas-${idx}" class="p-2 bg-white rounded-xl border border-slate-100"></div>
+          <div>
+            <p class="font-bold text-slate-900 text-sm">${escapeHtml(area.name)}</p>
+            <p class="text-xs text-slate-500">${escapeHtml(area.dept)}</p>
+          </div>
+          <div class="w-full pt-1 flex items-center justify-center gap-2 print:hidden">
+            <button onclick="closeQrModal(); switchTab('sender'); selectAreaForSender('${escapeHtml(area.code)}')" class="flex-1 py-2 px-3 rounded-xl bg-spilgreen-600 hover:bg-spilgreen-700 text-white text-xs font-bold transition">
+              Kirim Foto Area
+            </button>
+            <button onclick="deleteArea('${escapeHtml(area.code)}')" class="py-2 px-3 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-500 text-xs font-bold transition">
+              Hapus
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+
+        if (typeof QRCode !== 'undefined') {
+          new QRCode(document.getElementById(`qr-canvas-${idx}`), {
+            text: area.code,
+            width: 128,
+            height: 128,
+            colorDark: '#02381d',
+            colorLight: '#ffffff'
+          });
+        }
+      });
+
+      document.getElementById('modal-qr').classList.remove('hidden');
+    }
+    function closeQrModal() { document.getElementById('modal-qr').classList.add('hidden'); }
+
+    // ==========================================
+    // 9. UTILITAS
+    // ==========================================
+    function formatDateTime(isoString) {
+      const d = new Date(isoString);
+      return d.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+    let toastTimer = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.add('hidden'), 2800);
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
+```
